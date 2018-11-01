@@ -26,6 +26,9 @@ class ErrorResponse(Exception):
 	def file_not_found(self):
 		self.error_type = 3
 
+	def file_already_exist(self):
+		self.error_type = 4
+
 
 
 '''
@@ -55,8 +58,14 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	"""
 	def exposed_modify_file(self, filename, version, hashlist):
-		"""
-		DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
+		self.eprint("In exposed_modify_file, return status, missingBlockList")
+		missingBlockList = []
+		status = "OK"
+		return status, missingBlockList
+		pass
+
+	"""
+        DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
         version number v must be one bigger than the most up-date-date version.
 
         As per rpyc syntax, adding the prefix 'exposed_' will expose this
@@ -75,7 +84,20 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	"""
 	def exposed_read_file(self, filename):
-		pass
+		ver = 0
+		hl = []
+		filenameList = []
+		if filename in filenameList:
+			self.eprint("file exist")
+		else:
+			self.eprint("file not exist")
+			filenameList.append(filename)
+			return ver, hl
+		self.eprint("In exposed_read_file, return ver, hl")
+		return ver, hl
+
+	def eprint(*args, **kwargs):
+		print(*args, file=sys.stderr, **kwargs)
 
 
 if __name__ == '__main__':
