@@ -3,7 +3,7 @@ import sys
 
 
 '''
-A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues - 
+A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues -
 1. The file being modified has missing blocks in the block store.
 2. The file being read/deleted does not exist.
 3. The request for modifying/deleting a file has the wrong file version.
@@ -36,7 +36,7 @@ metadata is stored in memory, and no database systems or files will be used to
 maintain the data.
 '''
 class MetadataStore(rpyc.Service):
-	
+
 
 	"""
         Initialize the class using the config file provided and also initialize
@@ -55,7 +55,11 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	'''
 	def exposed_modify_file(self, filename, version, hashlist):
-		
+		self.eprint("In exposed_modify_file, return status, missingBlockList")
+		missingBlockList = []
+		status = "OK"
+		return status, missingBlockList
+		pass
 
 	'''
         DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
@@ -77,7 +81,20 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	'''
 	def exposed_read_file(self, filename):
-		pass
+		ver = 0
+		hl = []
+		filenameList = []
+		if filename in filenameList:
+			self.eprint("file exist")
+		else:
+			self.eprint("file not exist")
+			filenameList.append(filename)
+			return ver, hl
+		self.eprint("In exposed_read_file, return ver, hl")
+		return ver, hl
+
+	def eprint(*args, **kwargs):
+		print(*args, file=sys.stderr, **kwargs)
 
 
 if __name__ == '__main__':
