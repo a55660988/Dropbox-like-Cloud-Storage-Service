@@ -26,6 +26,9 @@ class ErrorResponse(Exception):
 	def file_not_found(self):
 		self.error_type = 3
 
+	def file_already_exist(self):
+		self.error_type = 4
+
 
 
 '''
@@ -55,7 +58,7 @@ class MetadataStore(rpyc.Service):
 		self.eprint("allFilenameList: ", self.allFilenameList)
 
 
-	'''
+	"""
         ModifyFile(f,v,hl): Modifies file f so that it now contains the
         contents refered to by the hashlist hl.  The version provided, v, must
         be exactly one larger than the current version that the MetadataStore
@@ -63,32 +66,32 @@ class MetadataStore(rpyc.Service):
 
         As per rpyc syntax, adding the prefix 'exposed_' will expose this
         method as an RPC call
-	'''
+	"""
 	def exposed_modify_file(self, filename, version, hashlist):
 		self.eprint("In exposed_modify_file, return status, missingBlockList")
 		missingBlockList = []
 		status = "OK"
 		return status, missingBlockList
 
-	'''
+	"""
         DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
         version number v must be one bigger than the most up-date-date version.
 
         As per rpyc syntax, adding the prefix 'exposed_' will expose this
         method as an RPC call
-	'''
+		"""
 	def exposed_delete_file(self, filename, version):
 		pass
 
 
-	'''
+	"""
         (v,hl) = ReadFile(f): Reads the file with filename f, returning the
         most up-to-date version number v, and the corresponding hashlist hl. If
         the file does not exist, v will be 0.
 
         As per rpyc syntax, adding the prefix 'exposed_' will expose this
         method as an RPC call
-	'''
+	"""
 	def exposed_read_file(self, filename):
 		self.eprint("In exposed_read_file, return fileVer, fileHashList")
 		for allFilenameListElement in self.allFilenameList:
@@ -113,4 +116,3 @@ if __name__ == '__main__':
 	from rpyc.utils.server import ThreadPoolServer
 	server = ThreadPoolServer(MetadataStore(sys.argv[1]), port = 6000)
 	server.start()
-
