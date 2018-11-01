@@ -4,7 +4,6 @@ import os
 import sys
 from metastore import MetadataStore
 from blockstore import BlockStore
-import hashlib
 
 """
 A client is a program that interacts with SurfStore. It is used to create,
@@ -103,7 +102,7 @@ class UploadHelper():
 			return filepath, False
 
 	def splitFileToChunkAndHash(self, filepath):
-		self.eprint("split file into block")
+		self.eprint("At client, split local file into block")
 		chunkList = []
 		chunkHashList = []
 		fp = open(filepath, "rb")
@@ -114,7 +113,7 @@ class UploadHelper():
 			chunk = fp.read(4096)
 		self.eprint("chunkList: ", chunkList)
 		self.eprint("chunkHashList: ", chunkHashList)
-		self.eprint("split file into block done")
+		self.eprint("At client, split local file into block DONE")
 		return chunkList, chunkHashList
 
 	def eprint(*args, **kwargs):
