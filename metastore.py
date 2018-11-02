@@ -89,13 +89,10 @@ class MetadataStore(rpyc.Service):
 	def exposed_read_file(self, filename):
 
 		self.eprint("In exposed_read_file, return fileVer, fileHashList")
-		for key, value in self.fileHashListMap.items():
-			if filename in key:
-				self.eprint("file exist in server")
-				fileVer = value["fileVer"]
-				fileHashList = value["hashList"]
-				# we return fileVer, fileHashList
-				return fileVer, fileHashList
+		if filename in self.fileHashListMap:
+			fileVer = self.fileHashlistMap[filename]["fileVer"]
+			fileHashList = self.fileHashListMap[filename]["hashList"]
+		return fileVer, fileHashList
 
 		# file not exist
 		self.eprint("file not exist in server")
