@@ -128,7 +128,7 @@ class SurfStoreClient():
 class UploadHelper():
 
 	def checkFileExist(self, filepath):
-		self.eprint("File path = ", filepath)
+		# self.eprint("File path = ", filepath)
 		# check filepath file exist or not
 		if os.path.isfile(filepath):
 			return filepath, True
@@ -145,9 +145,9 @@ class UploadHelper():
 			chunkList.append(chunk)
 			chunkHashList.append(hashlib.sha256(chunk).hexdigest())
 			chunk = fp.read(4096)
-		self.eprint("chunkList: ", chunkList)
-		self.eprint("chunkHashList: ", chunkHashList)
-		self.eprint("At client, split local file into block DONE")
+		# self.eprint("chunkList: ", chunkList)
+		# self.eprint("chunkHashList: ", chunkHashList)
+		# self.eprint("At client, split local file into block DONE")
 		return chunkList, chunkHashList
 
 	def eprint(*args, **kwargs):
