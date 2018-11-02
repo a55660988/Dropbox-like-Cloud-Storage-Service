@@ -16,10 +16,9 @@ class BlockStore(rpyc.Service):
 	"""
 	def __init__(self):
 		# blockMap = {"HashValue1": block0, "HashValue2": block1}
-		self.blockMap = {"HashABC": 0, "HashDEF": 1, "HashGHI": 2, "HashJKL": 3}
+		self.blockMap = {}
 		self.blockList = []
-		self.eprint("blockMap: ", self.blockMap)
-		pass
+		# self.eprint("blockList: ", self.blockList)
 
 	"""
 		store_block(h, b) : Stores block b in the key-value store, indexed by
@@ -30,8 +29,9 @@ class BlockStore(rpyc.Service):
 	"""
 	def exposed_store_block(self, h, block):
 		self.blockList.append(block)
-		self.blockMap[h] = len(self.blockList)-1
+		self.blockMap[h] = len(self.blockList) - 1
 		# self.eprint("In exposed_store_block")
+		# print("block map: ", self.blockMap)
 		return "exposed_store_block DONE"
 
 	"""

@@ -32,14 +32,14 @@ class SurfStoreClient():
 	"""
 	def upload(self, filepath):
 		# check local file exist
-		# call exposed_read_file(filename): CL check file with MDS and get ver, hl
-		# split file into chunk and chunkHash
-		# call exposed_modify_file(filename, version, hashlist) to MDS to get missingBlockList
-		# 	MDS check all block status in chunkHashList with BS
-		# 	BS response missing block to MDS, MDS create missingBlockList
-		# 	MDS response missingBlockList to CL
+		# call exposed_read_file(filename): CL check file with metaData and get ver, hl
+		# split file into block and blockHash
+		# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockList
+		# 	metaData check all block status in blockHashList with BS
+		# 	BS response missing block to metaData, metaData create missingBlockList
+		# 	metaData response missingBlockList to CL
 		# start uploading, call exposed_store_block(h, block)
-		# When finishing upload, call exposed_modify_file to check with MDS and get response OK
+		# When finishing upload, call exposed_modify_file to check with metaData and get response OK
 
 		UH = UploadHelper()
 		# check local file exist
@@ -47,28 +47,29 @@ class SurfStoreClient():
 		if checkExist:
 			self.eprint("Local file exist")
 
-			# call exposed_read_file(filename): CL check file with MDS and get fileVer, fileHashList
-			MDS = MetadataStore("config")
-			fileVer, fileHashList = MDS.exposed_read_file(filepath)
+			# call exposed_read_file(filename): CL check file with metaData and get fileVer, fileHashList
+			fileVer, fileHashList = self.metaData.exposed_read_file(filepath)
 
-			# split file into chunk and chunkHash
-			chunkList, chunkHashList = UH.splitFileToChunkAndHash(filepath)
+			# split file into block and blockHash
+			blockList, blockHashList = UH.splitFileToBlockAndHash(filepath)
 
-			# call exposed_modify_file(filename, version, hashlist) to MDS to get missingBlockList
+			# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockList
 			self.eprint("call ModifyFile to get missingBlockList")
 			fileVer = fileVer + 1
-			status, missingBlockList = MDS.exposed_modify_file(filepath, fileVer, chunkHashList)
+			missingBlockList = self.metaData.exposed_modify_file(filepath, fileVer, blockHashList)
+			self.eprint("missingBlockList1: ", missingBlockList)
 
 			# start uploading, call exposed_store_block(h, block)
 			self.eprint("Get missingBlockList, start upload")
-			BS = BlockStore()
-			for c, ch in zip(chunkList, chunkHashList):
-				BS.exposed_store_block(ch, c)
+			for h, b in zip(blockHashList, blockList):
+				self.blockStore.exposed_store_block(h, b)
 
-			# When finishing upload, call exposed_modify_file to check with MDS and get response OK
+			# When finishing upload, call exposed_modify_file to check with metaData and get response OK
 			self.eprint("Finish upload, checking uploaded file")
-			status, missingBlockList = MDS.exposed_modify_file(filepath, fileVer, chunkHashList)
-			self.eprint("MDS Response: ", status)
+			missingBlockList = self.metaData.exposed_modify_file(filepath, fileVer, blockHashList)
+			self.eprint("missingBlockList2: ", missingBlockList)
+			if len(missingBlockList) == 0:
+				print("OK")
 		else:
 			self.eprint("Local file not exist")
 			print("Not Found")
@@ -98,7 +99,7 @@ class SurfStoreClient():
 		else:
 			print("not existed")
 	# ask metadata for hashlist
-		ver, hashList = metaData.exposed_read_file(filename)
+		ver, hashList = self.metaData.exposed_read_file(filename)
 	# getBlock() from blockstore
 		blocks = []
 		for h in hashList:
@@ -136,20 +137,20 @@ class UploadHelper():
 		else:
 			return filepath, False
 
-	def splitFileToChunkAndHash(self, filepath):
+	def splitFileToBlockAndHash(self, filepath):
 		self.eprint("At client, split local file into block")
-		chunkList = []
-		chunkHashList = []
+		blockList = []
+		blockHashList = []
 		fp = open(filepath, "rb")
-		chunk = fp.read(4096)
-		while chunk:
-			chunkList.append(chunk)
-			chunkHashList.append(hashlib.sha256(chunk).hexdigest())
-			chunk = fp.read(4096)
-		# self.eprint("chunkList: ", chunkList)
-		# self.eprint("chunkHashList: ", chunkHashList)
+		block = fp.read(4096)
+		while block:
+			blockList.append(block)
+			blockHashList.append(hashlib.sha256(block).hexdigest())
+			block = fp.read(4096)
+		# self.eprint("blockList: ", blockList)
+		# self.eprint("blockHashList: ", blockHashList)
 		# self.eprint("At client, split local file into block DONE")
-		return chunkList, chunkHashList
+		return blockHashList, blockList
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
