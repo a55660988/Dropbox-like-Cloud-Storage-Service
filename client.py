@@ -46,17 +46,17 @@ class SurfStoreClient():
 		if checkExist:
 			self.eprint("Local file exist")
 
-			# call exposed_read_file(filename): CL check file with MDS and get ver, hl
+			# call exposed_read_file(filename): CL check file with MDS and get fileVer, fileHashList
 			MDS = MetadataStore("config")
-			ver, hl = MDS.exposed_read_file(filepath)
+			fileVer, fileHashList = MDS.exposed_read_file(filepath)
 
 			# split file into chunk and chunkHash
 			chunkList, chunkHashList = UH.splitFileToChunkAndHash(filepath)
 
 			# call exposed_modify_file(filename, version, hashlist) to MDS to get missingBlockList
 			self.eprint("call ModifyFile to get missingBlockList")
-			ver = ver + 1
-			status, missingBlockList = MDS.exposed_modify_file(filepath, ver, chunkHashList)
+			fileVer = fileVer + 1
+			status, missingBlockList = MDS.exposed_modify_file(filepath, fileVer, chunkHashList)
 
 			# start uploading, call exposed_store_block(h, block)
 			self.eprint("Get missingBlockList, start upload")
@@ -66,7 +66,7 @@ class SurfStoreClient():
 
 			# When finishing upload, call exposed_modify_file to check with MDS and get response OK
 			self.eprint("Finish upload, checking uploaded file")
-			status, missingBlockList = MDS.exposed_modify_file(filepath, ver, chunkHashList)
+			status, missingBlockList = MDS.exposed_modify_file(filepath, fileVer, chunkHashList)
 			self.eprint("MDS Response: ", status)
 		else:
 			self.eprint("Local file not exist")
@@ -156,15 +156,13 @@ class UploadHelper():
 
 
 if __name__ == '__main__':
-	# client = SurfStoreClient()
 	client = SurfStoreClient(sys.argv[1])
-	client.download("test.txt","/Users/joy/Documents/cse 224/hw5")
-	# operation = sys.argv[2]
-	# if operation == 'upload':
-	# 	client.upload(sys.argv[3])
-	# elif operation == 'download':
-	# 	client.download(sys.argv[3], sys.argv[4])
-	# elif operation == 'delete':
-	# 	client.delete(sys.argv[3])
-	# else:
-	# 	print("Invalid operation")
+	operation = sys.argv[2]
+	if operation == 'upload':
+		client.upload(sys.argv[3])
+	elif operation == 'download':
+		client.download(sys.argv[3], sys.argv[4])
+	elif operation == 'delete':
+		client.delete(sys.argv[3])
+	else:
+		print("Invalid operation")

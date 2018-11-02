@@ -46,16 +46,11 @@ class MetadataStore(rpyc.Service):
         any datastructures you may need.
 	"""
 	def __init__(self, config):
-		# allHashList[[block1, block3], [block2, block5, block9]]
-		self.allHashList = []
-		self.allHashList = [[1, 3], [2, 5, 9]]
-
-		# allFilenameList[["filename", fileVer, fileHashListIndex]]
-		self.allFilenameList = []
-		self.allFilenameList.append(["/Users/Danny/Desktop/test/a.txt", 1, 0])
-		self.allFilenameList.append(["b.txt", 1, 1])
-		self.eprint("allHashList: ", self.allHashList)
-		self.eprint("allFilenameList: ", self.allFilenameList)
+		# FileHashListMap = {"filename": {fileVer: 0, hashList: ["HashValue1", "HashValue2"]}}
+		self.FileHashListMap = {}
+		self.FileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
+		self.FileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
+		self.eprint("FileHashListMap: ", self.FileHashListMap)
 
 
 	"""
@@ -94,11 +89,11 @@ class MetadataStore(rpyc.Service):
 	"""
 	def exposed_read_file(self, filename):
 		self.eprint("In exposed_read_file, return fileVer, fileHashList")
-		for allFilenameListElement in self.allFilenameList:
-			if filename in allFilenameListElement[0]:
+		for key, value in self.FileHashListMap.items():
+			if filename in key:
 				self.eprint("file exist in server")
-				fileVer = allFilenameListElement[1]
-				fileHashList = self.allHashList[allFilenameListElement[2]]
+				fileVer = value["fileVer"]
+				fileHashList = value["hashList"]
 				# we return fileVer, fileHashList
 				return fileVer, fileHashList
 
