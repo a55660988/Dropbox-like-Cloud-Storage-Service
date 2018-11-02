@@ -90,9 +90,9 @@ class MetadataStore(rpyc.Service):
 
 		self.eprint("In exposed_read_file, return fileVer, fileHashList")
 		if filename in self.fileHashListMap:
-			fileVer = self.fileHashlistMap[filename]["fileVer"]
-			fileHashList = self.fileHashListMap[filename]["hashList"]
-		return fileVer, fileHashList
+		   fileVer = self.fileHashlistMap[filename]["fileVer"]
+		   fileHashList = self.fileHashListMap[filename]["hashList"]
+		   return fileVer, fileHashList
 
 		# file not exist
 		self.eprint("file not exist in server")
