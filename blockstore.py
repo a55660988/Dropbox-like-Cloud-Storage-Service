@@ -17,8 +17,7 @@ class BlockStore(rpyc.Service):
 	def __init__(self):
 		# blockMap = {"HashValue1": block0, "HashValue2": block1}
 		self.blockMap = {"HashABC": 0, "HashDEF": 1, "HashGHI": 2, "HashJKL": 3}
-		self.eprint("blockMap: ", self.blockMap)
-		pass
+		# self.eprint("blockMap: ", self.blockMap)
 
 	"""
 		store_block(h, b) : Stores block b in the key-value store, indexed by
@@ -28,7 +27,7 @@ class BlockStore(rpyc.Service):
 		method as an RPC call
 	"""
 	def exposed_store_block(self, h, block):
-		self.eprint("In exposed_store_block")
+		# self.eprint("In exposed_store_block")
 		return "exposed_store_block DONE"
 
 	"""

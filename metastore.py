@@ -51,7 +51,6 @@ class MetadataStore(rpyc.Service):
 		self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
 		self.eprint("fileHashListMap: ", self.fileHashListMap)
 
-
 	"""
         ModifyFile(f,v,hl): Modifies file f so that it now contains the
         contents refered to by the hashlist hl.  The version provided, v, must
@@ -87,12 +86,13 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	"""
 	def exposed_read_file(self, filename):
-
-		self.eprint("In exposed_read_file, return fileVer, fileHashList")
+		# self.eprint("In exposed_read_file, return fileVer, fileHashList")
 		if filename in self.fileHashListMap:
+			self.eprint("file exist in server")
 			fileVer = self.fileHashlistMap[filename]["fileVer"]
 			fileHashList = self.fileHashListMap[filename]["hashList"]
-		return fileVer, fileHashList
+			# we return fileVer, fileHashList
+			return fileVer, fileHashList
 
 		# file not exist
 		self.eprint("file not exist in server")
