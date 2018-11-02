@@ -20,8 +20,9 @@ class SurfStoreClient():
 	"""
 	def __init__(self, config):
 		self.config = config
-		self.metaData = MetadataStore(self.config)
 		self.blockStore = BlockStore()
+		self.metaData = MetadataStore(self.config, self.blockStore)
+
 		# pass
 
 	"""
