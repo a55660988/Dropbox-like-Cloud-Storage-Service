@@ -40,13 +40,17 @@ maintain the data.
 '''
 class MetadataStore(rpyc.Service):
 
-
 	"""
         Initialize the class using the config file provided and also initialize
         any datastructures you may need.
 	"""
 	def __init__(self, config):
-		pass
+		# file_to_block_map = {'filename': {'ver_num':2, 'hashlist':
+		# ['wejiajsd', 'aerkjnsej', 'efnkwfjnwk']}}
+		self.fileHashListMap = {'123.txt': {'ver_num': 2, 'hashList':['wejiajsd', 'aerkjnsej']}}
+
+
+
 
 	"""
         ModifyFile(f,v,hl): Modifies file f so that it now contains the
@@ -62,7 +66,6 @@ class MetadataStore(rpyc.Service):
 		missingBlockList = []
 		status = "OK"
 		return status, missingBlockList
-		pass
 
 	"""
         DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
@@ -84,20 +87,24 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	"""
 	def exposed_read_file(self, filename):
-		ver = 0
-		hl = []
-		filenameList = []
-		if filename in filenameList:
-			self.eprint("file exist")
-		else:
-			self.eprint("file not exist")
-			filenameList.append(filename)
-			return ver, hl
-		self.eprint("In exposed_read_file, return ver, hl")
-		return ver, hl
+
+		self.eprint("In exposed_read_file, return fileVer, fileHashList")
+		for allFilenameListElement in self.allFilenameList:
+			if filename in allFilenameListElement[0]:
+				self.eprint("file exist in server")
+				fileVer = allFilenameListElement[1]
+				fileHashList = self.allHashList[allFilenameListElement[2]]
+				# we return fileVer, fileHashList
+				return fileVer, fileHashList
+
+		# file not exist
+		self.eprint("file not exist in server")
+		# we return fileVer = 0, fileHashList = []
+		return 0, []
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
+
 
 
 if __name__ == '__main__':

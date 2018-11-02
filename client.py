@@ -98,13 +98,13 @@ class SurfStoreClient():
 		else:
 			print("not existed")
 	# ask metadata for hashlist
-		# hashList = metaData.exposed_read_file(filename)
+		ver, hashList = metaData.exposed_read_file(filename)
 	# getBlock() from blockstore
-		# blocks = []
-		# for h in hashList:
-			# blocks.append(blockStore.exposed_get_block())
+		blocks = []
+		for h in hashList:
+			blocks.append(self.blockStore.exposed_get_block(h))
 	# merge blocks to form file & write out file
-		blocks = [b'hello', b'cse 224', b'hw5']
+		# blocks = [b'hello', b'cse 224', b'hw5']
 		if location != "":
 			fname = location + "/"
 		else:
@@ -137,7 +137,7 @@ class UploadHelper():
 			return filepath, False
 
 	def splitFileToChunkAndHash(self, filepath):
-		self.eprint("split file into block")
+		self.eprint("At client, split local file into block")
 		chunkList = []
 		chunkHashList = []
 		fp = open(filepath, "rb")
@@ -148,7 +148,7 @@ class UploadHelper():
 			chunk = fp.read(4096)
 		self.eprint("chunkList: ", chunkList)
 		self.eprint("chunkHashList: ", chunkHashList)
-		self.eprint("split file into block done")
+		self.eprint("At client, split local file into block DONE")
 		return chunkList, chunkHashList
 
 	def eprint(*args, **kwargs):
@@ -159,13 +159,13 @@ class UploadHelper():
 if __name__ == '__main__':
 	# client = SurfStoreClient()
 	client = SurfStoreClient(sys.argv[1])
-	client.download("test.txt","/Users/joy/Documents/cse 224/hw5")
-	# operation = sys.argv[2]
-	# if operation == 'upload':
-	# 	client.upload(sys.argv[3])
-	# elif operation == 'download':
-	# 	client.download(sys.argv[3], sys.argv[4])
-	# elif operation == 'delete':
-	# 	client.delete(sys.argv[3])
-	# else:
-	# 	print("Invalid operation")
+	# client.upload("/Users/joy/Documents/cse 224/hw5/test.txt")
+	operation = sys.argv[2]
+	if operation == 'upload':
+		client.upload(sys.argv[3])
+	elif operation == 'download':
+		client.download(sys.argv[3], sys.argv[4])
+	elif operation == 'delete':
+		client.delete(sys.argv[3])
+	else:
+		print("Invalid operation")

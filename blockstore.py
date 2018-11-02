@@ -15,6 +15,8 @@ class BlockStore(rpyc.Service):
 	Initialize any datastructures you may need.
 	"""
 	def __init__(self):
+		# hash_to_block = {'wejiajsd': 1, 'aerkjnsej': 30}
+		self.hashBlock = {'wejiajsd': 1, 'aerkjnsej': 30}
 		pass
 
 	"""
@@ -36,17 +38,22 @@ class BlockStore(rpyc.Service):
 		method as an RPC call
 	"""
 	def exposed_get_block(self, h):
-		pass
+		if self.exposed_has_block(h):
+			return self.hashBlock[h]
+		self.eprint("block doesn't exist with hashValue: ", h)
+		return "Block doesn't exist"
 
 	"""
-		rue/False = has_block(h) : Signals whether block indexed by h exists
+		True/False = has_block(h) : Signals whether block indexed by h exists
 		in the BlockStore service
 
 		As per rpyc syntax, adding the prefix 'exposed_' will expose this
 		method as an RPC call
 	"""
 	def exposed_has_block(self, h):
-		pass
+		if h not in self.hashBlock:
+			return False
+		return True
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
