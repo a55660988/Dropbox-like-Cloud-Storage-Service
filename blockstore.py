@@ -15,8 +15,9 @@ class BlockStore(rpyc.Service):
 	Initialize any datastructures you may need.
 	"""
 	def __init__(self):
-		# hash_to_block = {'wejiajsd': 1, 'aerkjnsej': 30}
-		self.hashBlock = {'wejiajsd': 1, 'aerkjnsej': 30}
+		# blockMap = {"HashValue1": block0, "HashValue2": block1}
+		self.blockMap = {"HashABC": 0, "HashDEF": 1, "HashGHI": 2, "HashJKL": 3}
+		self.eprint("blockMap: ", self.blockMap)
 		pass
 
 	"""
@@ -29,7 +30,6 @@ class BlockStore(rpyc.Service):
 	def exposed_store_block(self, h, block):
 		self.eprint("In exposed_store_block")
 		return "exposed_store_block DONE"
-
 
 	"""
 	b = get_block(h) : Retrieves a block indexed by hash value h
