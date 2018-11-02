@@ -29,7 +29,9 @@ class BlockStore(rpyc.Service):
 		method as an RPC call
 	"""
 	def exposed_store_block(self, h, block):
-		self.eprint("In exposed_store_block")
+		self.blockList.append(block)
+		self.blockMap[h] = len(self.blockList)-1
+		# self.eprint("In exposed_store_block")
 		return "exposed_store_block DONE"
 
 	"""
@@ -50,6 +52,9 @@ class BlockStore(rpyc.Service):
 
 		As per rpyc syntax, adding the prefix 'exposed_' will expose this
 		method as an RPC call
+
+
+
 	"""
 	def exposed_has_block(self, h):
 		if h not in self.hashBlock:
