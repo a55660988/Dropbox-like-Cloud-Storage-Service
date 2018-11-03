@@ -1,7 +1,6 @@
 import rpyc
 import sys
 
-
 '''
 A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues -
 1. The file being modified has missing blocks in the block store.
@@ -127,8 +126,9 @@ class MetadataStore(rpyc.Service):
 		if filename in self.fileHashListMap:
 			fileVer = self.fileHashListMap[filename]["fileVer"]
 			fileHashList = self.fileHashListMap[filename]["hashList"]
-			self.eprint("Get file: ", filename, " and return fileVer: ", fileVer, " and fileHashList")
+			self.eprint("Get file: ", filename, " and return fileVer: ", fileVer, " and fileHashList ", fileHashList)
 			return fileVer, fileHashList
+			# return 1, ['7483d84fb432028aefe85f68ad1523ef25fa7782bcbdf68d9e65e138e9437586']
 
 		# file not exist
 		self.eprint("file: ", filename, " doesn't exist in server")

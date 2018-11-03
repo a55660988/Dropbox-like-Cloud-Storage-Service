@@ -36,6 +36,7 @@ class BlockStore(rpyc.Service):
 		# TODO: worry about concurrency problem for count len(self.blockList)
 		self.eprint("storing block ", block, " to blockMap with index hashValue: ", h)
 		self.blockList.append(block)
+		self.eprint("block: ", block)
 		self.blockMap[h] = len(self.blockList) - 1
 
 	"""
@@ -47,6 +48,7 @@ class BlockStore(rpyc.Service):
 	def exposed_get_block(self, h):
 		if self.exposed_has_block(h):
 			self.eprint("Get blockMap with index hashValue: ", h)
+			self.eprint("block returned : ", self.blockList[self.blockMap[h]])
 			return self.blockList[self.blockMap[h]]
 		else:
 			self.eprint("blockMap doesn't exist with index hashValue: ", h)
