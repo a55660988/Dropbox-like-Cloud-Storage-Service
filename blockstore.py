@@ -1,5 +1,5 @@
 import rpyc
-import sys 
+import sys
 
 """
 The BlockStore service is an in-memory data store that stores blocks of data,
@@ -66,11 +66,7 @@ class BlockStore(rpyc.Service):
 
 
 if __name__ == '__main__':
-	bs = BlockStore()
-	bs.exposed_store_block("fnwefnlekf", b'123')
-	bs.exposed_store_block("snjkdfnsj",b'34545')
-	print(bs.exposed_has_block("fnwefnlekf"))
-	# from rpyc.utils.server import ThreadPoolServer
-	# port = int(sys.argv[1])
-	# server = ThreadPoolServer(BlockStore(), port=port)
-	# server.start()
+	from rpyc.utils.server import ThreadPoolServer
+	port = int(sys.argv[1])
+	server = ThreadPoolServer(BlockStore(), port=port)
+	server.start()

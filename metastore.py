@@ -1,6 +1,5 @@
 import rpyc
 import sys
-from blockstore import BlockStore
 
 
 '''
@@ -51,7 +50,6 @@ class MetadataStore(rpyc.Service):
 		self.fileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
 		self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
 		self.eprint("fileHashListMap: ", self.fileHashListMap)
-		self.BS = BlockStore()
 
 	"""
         ModifyFile(f,v,hl): Modifies file f so that it now contains the
@@ -95,7 +93,6 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	"""
 	def exposed_read_file(self, filename):
-
 		self.eprint("In exposed_read_file, return fileVer, fileHashList")
 		if filename in self.fileHashListMap:
 		   fileVer = self.fileHashlistMap[filename]["fileVer"]

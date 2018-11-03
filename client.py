@@ -20,13 +20,25 @@ class SurfStoreClient():
 	"""
 	def __init__(self, config):
 		self.config = config
-		self.blockStore = BlockStore()
-		self.metaData = MetadataStore(self.config, self.blockStore)
+		self.config_dict = self.parseConfig(config)
+		self.conn_metaStore = rpyc.connect("localhost", self.config_dict['metadata'])
+		self.conn_blockStore = rpyc.connect("localhost", self.config_dict['block1'])
+		print("connected to metaStore root ", str(self.conn_metaStore.root))
 
 		# pass
+	def parseConfig(self, config):
+		dict = {}
+		with open(self.config, 'r') as file:
+			lines = [line.strip('\n') for line in file]
+			lines = lines[1:]
+			for line in lines:
+				temp = line.split(":")
+				dict[temp[0]] = temp[2]
+		return dict
+
 
 	"""
-	upload(filepath) : Reads the local file, creates a set of
+	upload(filepath)) : Reads the local file, creates a set of
 	hashed blocks and uploads them onto the MetadataStore
 	(and potentially the BlockStore if they were not already present there).
 	"""
@@ -86,7 +98,6 @@ class SurfStoreClient():
 		it to (dst) folder. Ensures not to download unnecessary blocks.
 	"""
 	def download(self, filename, location):
-		pass
 	# check if filename exists in location
 		if location == "":
 			file = Path(filename)
@@ -99,11 +110,11 @@ class SurfStoreClient():
 		else:
 			print("not existed")
 	# ask metadata for hashlist
-		ver, hashList = self.metaData.exposed_read_file(filename)
+		ver, hashList = self.conn_metaStore.read_file(filename)
 	# getBlock() from blockstore
 		blocks = []
 		for h in hashList:
-			blocks.append(self.blockStore.exposed_get_block(h))
+			blocks.append(self.conn_blockStore.get_block(h))
 	# merge blocks to form file & write out file
 		# blocks = [b'hello', b'cse 224', b'hw5']
 		if location != "":
@@ -158,13 +169,16 @@ class UploadHelper():
 
 
 if __name__ == '__main__':
+
 	client = SurfStoreClient(sys.argv[1])
+
 	operation = sys.argv[2]
-	if operation == 'upload':
-		client.upload(sys.argv[3])
-	elif operation == 'download':
-		client.download(sys.argv[3], sys.argv[4])
-	elif operation == 'delete':
-		client.delete(sys.argv[3])
-	else:
-		print("Invalid operation")
+	client.download(sys.argv[3], sys.argv[4])
+	# if operation == 'upload':
+	# 	client.upload(sys.argv[3])
+	# elif operation == 'download':
+		# client.download(sys.argv[3], sys.argv[4])
+	# elif operation == 'delete':
+	# 	client.delete(sys.argv[3])
+	# else:
+	# 	print("Invalid operation")
