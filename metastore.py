@@ -48,8 +48,8 @@ class MetadataStore(rpyc.Service):
 		self.connBlockStore = rpyc.connect("localhost", self.config_dict['block1'])
 		# fileHashListMap = {"filename": {fileVer: 0, hashList: ["HashValue1", "HashValue2"]}}
 		self.fileHashListMap = {}
-		self.fileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
-		self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
+		# self.fileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
+		# self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
 		# self.eprint("fileHashListMap: ", self.fileHashListMap)
 
 	"""
@@ -75,7 +75,7 @@ class MetadataStore(rpyc.Service):
 			self.eprint("No missingBlockList")
 			# client has finished upload new file
 			if filename not in self.fileHashListMap:
-				self.fileHashListMap[filename] ={"fileVer": 1, "hashList": hashlist}
+				self.fileHashListMap[filename] ={"fileVer": 1, "hashList": tuple(hashlist)}
 				self.eprint(self.fileHashListMap[filename])
 				self.eprint("=====Client has finished upload NEW file=====")
 				self.eprint("filename: ", filename, self.fileHashListMap[filename])
@@ -83,7 +83,7 @@ class MetadataStore(rpyc.Service):
 			# client has finished upload overwrite file, add 1 to ver
 			elif filename in self.fileHashListMap:
 				self.fileHashListMap[filename]["fileVer"] = self.fileHashListMap[filename]["fileVer"] + 1
-				self.fileHashListMap[filename]["hashList"] = hashlist
+				self.fileHashListMap[filename]["hashList"] = tuple(hashlist)
 				self.eprint("=====Client has finished upload and OVERWRITE file=====")
 				self.eprint("filename: ", filename, self.fileHashListMap[filename])
 				self.eprint("==========")
@@ -117,11 +117,12 @@ class MetadataStore(rpyc.Service):
 		#################################################
 		### return 1, ["12344", "testtest", "test1"]  ###
 		#################################################
-		self.eprint("Checking file: ", filename)
+		# print("!!!!!!!!!!=============hashList id: " + str(self.fileHashListMap))
+
 		if filename in self.fileHashListMap:
 			fileVer = self.fileHashListMap[filename]["fileVer"]
 			fileHashList = self.fileHashListMap[filename]["hashList"]
-			self.eprint("Get file: ", filename, " and return fileVer: ", fileVer, " and fileHashList ", fileHashList)
+			# self.eprint("Get file: ", filename, " and return fileVer: ", fileVer, " and fileHashList ", fileHashList)
 			return fileVer, fileHashList
 			# return 1, ['7483d84fb432028aefe85f68ad1523ef25fa7782bcbdf68d9e65e138e9437586']
 
