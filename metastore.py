@@ -48,6 +48,7 @@ class MetadataStore(rpyc.Service):
 		self.connBlockStore = rpyc.connect("localhost", self.config_dict['block1'])
 		# fileHashListMap = {"filename": {fileVer: 0, hashList: ["HashValue1", "HashValue2"]}}
 		self.fileHashListMap = {}
+		self.deleteFiles = []
 		# self.fileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
 		# self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
 		# self.eprint("fileHashListMap: ", self.fileHashListMap)
@@ -106,7 +107,14 @@ class MetadataStore(rpyc.Service):
 		method as an RPC call
 		"""
 	def exposed_delete_file(self, filename, version):
-		pass
+		verNum = self.fileHashListMap[filename]["fileVer"]
+		if version <= verNum:
+			print("Version not allowed")
+		else:
+			self.fileHashListMap[filename]["fileVer"] = verNum + 1
+			self.deleteFiles.append(filename)
+			self.eprint(filename, "with version number: ", verNum, " is deleted")
+			self.eprint(self.deleteFiles)
 
 
 	"""
@@ -123,18 +131,26 @@ class MetadataStore(rpyc.Service):
 		### return 1, ["12344", "testtest", "test1"]  ###
 		#################################################
 		# print("!!!!!!!!!!=============hashList id: " + str(self.fileHashListMap))
-
-		if filename in self.fileHashListMap:
-			fileVer = self.fileHashListMap[filename]["fileVer"]
-			fileHashList = self.fileHashListMap[filename]["hashList"]
-			# self.eprint("Get file: ", filename, " and return fileVer: ", fileVer, " and fileHashList ", fileHashList)
-			return fileVer, fileHashList
-			# return 1, ['7483d84fb432028aefe85f68ad1523ef25fa7782bcbdf68d9e65e138e9437586']
-
+		if filename not in self.deleteFiles:
+			self.eprint("not deleted file")
+			if filename in self.fileHashListMap:
+				self.eprint("not deleted ")
+				fileVer = self.fileHashListMap[filename]["fileVer"]
+				fileHashList = self.fileHashListMap[filename]["hashList"]
+			else:
+				fileVer = 0
+				fileHashList = []
+		else:
+			if filename in self.fileHashListMap:
+				fileVer = self.fileHashListMap[filename]["fileVer"]
+				fileHashList = []
+			else:
+				fileVer = 0
+				fileHashList = []
 		# file not exist
 		self.eprint("file: ", filename, " doesn't exist in server")
 		# we return fileVer = 0, fileHashList = []
-		return 0, []
+		return fileVer, fileHashList
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
