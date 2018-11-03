@@ -24,7 +24,8 @@ class SurfStoreClient():
 		self.conn_blockStore = rpyc.connect("localhost", self.config_dict['block1'])
 		print("connected to metaStore root ", str(self.conn_metaStore.root))
 		print("connected to blockStore root ", str(self.conn_blockStore.root))
-		# pass
+
+
 	def parseConfig(self, config):
 		dict = {}
 		with open(config, 'r') as file:
@@ -101,7 +102,7 @@ class SurfStoreClient():
 			file = Path(filename)
 		else:
 			file = Path("/".join([location, filename]))
-		print("searched file path: ", file)
+		self.eprint("searched file path: ", file)
 
 		if file.is_file():
 			raise Exception("File already exists")
@@ -114,7 +115,6 @@ class SurfStoreClient():
 		for h in hashList:
 			blocks.append(self.conn_blockStore.root.get_block(h))
 	# merge blocks to form file & write out file
-		# blocks = [b'hello', b'cse 224', b'hw5']
 		if location != "":
 			fname = location + "/"
 		else:
