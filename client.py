@@ -89,7 +89,6 @@ class SurfStoreClient():
 				# TODO: missingBlockHashList not empty, upload again
 				response = UH.checkUpload(filepath, fileVer, blockHashList)
 				print(response)
-
 		else:
 			self.eprint("Local file not exist")
 			print("Not Found")
@@ -121,29 +120,24 @@ class SurfStoreClient():
 		self.eprint("finished checking if the directory is avaliable")
 		# ver, hashList = self.conn_metaStore.root.read_file(filename)
 		self.eprint("file name: ", filename)
-		fileVer, fileHashList = self.conn_metaStore.root.read_file(filename)
-		print("fileHashList: ", fileHashList)
+		fileVer, hashList = self.conn_metaStore.root.read_file(filename)
 
 	# getBlock() from blockstore
-	# 	blocks = []
-	# 	print("=======================")
-	# 	print("hashList ", hashList)
-	# 	print("=======================")
-	# 	for h in hashList:
-	# 		self.eprint("hashList: ", h)
-	# 		blocks.append(self.conn_blockStore.root.get_block(h))
-	# # merge blocks to form file & write out file
-	# 	if location != "":
-	# 		fname = location + "/"
-	# 	else:
-	# 		fname = ""
-	# 	fout = open(file, 'wb')
-	# 	for block in blocks:
-	# 		fout.write(block)
-	# 	fout.close()
-	#
-	# 	''' singal user '''
-	# 	print("File " + str(filename) + " Downloaded successfully")
+		blocks = []
+		for h in hashList:
+			blocks.append(self.conn_blockStore.root.get_block(h))
+	# merge blocks to form file & write out file
+		if location != "":
+			fname = location + "/"
+		else:
+			fname = ""
+		fout = open(file, 'wb')
+		for block in blocks:
+			fout.write(block)
+		fout.close()
+
+		''' singal user '''
+		print("File " + str(filename) + " Downloaded successfully")
 
 	"""
 	 Use eprint to print debug messages to stderr
@@ -213,7 +207,6 @@ class UploadHelper():
 
 
 if __name__ == '__main__':
-
 	client = SurfStoreClient(sys.argv[1])
 	operation = sys.argv[2]
 	if operation == 'upload':
