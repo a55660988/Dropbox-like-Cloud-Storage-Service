@@ -58,9 +58,9 @@ class SurfStoreClient():
 		filepath, checkExist = UH.checkFileExist(filepath)
 		if checkExist:
 			self.eprint("Local file exist")
-
+			filename = UH.filepathGetFilename(filepath)
 			# call exposed_read_file(filename): CL check file with metaData and get fileVer, fileHashList
-			fileVer, fileHashList = self.conn_metaStore.root.exposed_read_file(filepath)
+			fileVer, fileHashList = self.conn_metaStore.root.exposed_read_file(filename)
 
 			# split file into block and blockHash
 			blockHashList, blockList = UH.splitFileToBlockAndHash(filepath)
@@ -68,7 +68,7 @@ class SurfStoreClient():
 			# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockHashList
 			self.eprint("call ModifyFile to get missingBlockHashList")
 			fileVer = fileVer + 1
-			missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
+			missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList)
 
 			if missingBlockHashList == "OK":
 				# no need to upload
@@ -87,7 +87,7 @@ class SurfStoreClient():
 				# When finishing upload, check file
 				self.eprint("Finish upload, check uploaded file")
 				# TODO: missingBlockHashList not empty, upload again
-				response = UH.checkUpload(filepath, fileVer, blockHashList)
+				response = UH.checkUpload(filename, fileVer, blockHashList)
 				print(response)
 		else:
 			self.eprint("Local file not exist")
@@ -162,6 +162,15 @@ class UploadHelper():
 		else:
 			return filepath, False
 
+	def filepathGetFilename(self, filepath):
+		if "/" in filepath:
+			filepathList = filepath.split("/")
+			filename = filepathList[-1]
+		else:
+			filename = filepath
+		return filename
+
+
 	def splitFileToBlockAndHash(self, filepath):
 		self.eprint("At client, split local file into block")
 		blockList = []
@@ -193,9 +202,9 @@ class UploadHelper():
 			for missingBlockHashListElement in missingBlockHashList:
 				self.conn_blockStore.root.exposed_store_block(blockHashList[blockHashList.index(missingBlockHashListElement)], missingBlockHashListElement)
 
-	def checkUpload(self, filepath, fileVer, blockHashList):
+	def checkUpload(self, filename, fileVer, blockHashList):
 		# call exposed_modify_file to check with metaData and get response OK
-		missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
+		missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList)
 		self.eprint("missingBlockHashList (second): ", missingBlockHashList)
 		if missingBlockHashList == "OK":
 			return "OK"
