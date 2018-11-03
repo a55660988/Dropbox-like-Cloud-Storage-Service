@@ -52,7 +52,7 @@ class SurfStoreClient():
 		# start uploading, call exposed_store_block(h, block)
 		# When finishing upload, call exposed_modify_file to check with metaData and get response OK
 
-		UH = UploadHelper()
+		UH = UploadHelper(self.conn_metaStore, self.conn_blockStore)
 		# check local file exist
 		filepath, checkExist = UH.checkFileExist(filepath)
 		if checkExist:
@@ -73,28 +73,22 @@ class SurfStoreClient():
 				# no need to upload
 				self.eprint("After checking missingBlockHashList, no missing, no need to upload")
 				print("OK")
+
 			elif missingBlockHashList == "NOT ALLOW":
 				self.eprint("NOT ALLOW UPLOAD due to file version smaller than server")
+
 			else:
 				# start uploading, call exposed_store_block(h, block)
 				self.eprint("Get missingBlockHashList (first)")
 				self.eprint("missingBlockHashList (first): ", missingBlockHashList)
-				# all missing, upload all
-				if len(missingBlockHashList) == len(blockList):
-					self.eprint("Start upload missing block (file total change)")
-					for h, b in zip(blockHashList, blockList):
-						self.conn_blockStore.root.exposed_store_block(h, b)
-				else:
-					self.eprint("Start upload missing block (file partial change)")
-					for missingBlockHashListElement in missingBlockHashList:
-						self.conn_blockStore.root.exposed_store_block(blockHashList[blockHashList.index(missingBlockHashListElement)], missingBlockHashListElement)
+				UH.startUpload(blockList, blockHashList, missingBlockHashList)
 
-				# When finishing upload, call exposed_modify_file to check with metaData and get response OK
-				self.eprint("Finish upload, checking uploaded file")
-				missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
-				self.eprint("missingBlockHashList (second): ", missingBlockHashList)
-				if len(missingBlockHashList) == 0:
-					print("OK")
+				# When finishing upload, check file
+				self.eprint("Finish upload, check uploaded file")
+				# TODO: missingBlockHashList not empty, upload again
+				response = UH.checkUpload(filepath, fileVer, blockHashList)
+				print(response)
+
 		else:
 			self.eprint("Local file not exist")
 			print("Not Found")
@@ -153,6 +147,10 @@ class SurfStoreClient():
 
 class UploadHelper():
 
+	def __init__(self, conn_metaStore, conn_blockStore):
+		self.conn_metaStore = conn_metaStore
+		self.conn_blockStore = conn_blockStore
+
 	def checkFileExist(self, filepath):
 		# self.eprint("File path = ", filepath)
 		# check filepath file exist or not
@@ -179,6 +177,26 @@ class UploadHelper():
 		# self.eprint("blockHashList: ", blockHashList)
 		# self.eprint("At client, split local file into block DONE")
 		return blockHashList, blockList
+
+	def startUpload(self, blockList, blockHashList, missingBlockHashList):
+		# all missing, upload all
+		if len(missingBlockHashList) == len(blockList):
+			self.eprint("Start upload missing block (file total change)")
+			for h, b in zip(blockHashList, blockList):
+				self.conn_blockStore.root.exposed_store_block(h, b)
+		# partial missing, upload missing block
+		else:
+			self.eprint("Start upload missing block (file partial change)")
+			for missingBlockHashListElement in missingBlockHashList:
+				self.conn_blockStore.root.exposed_store_block(blockHashList[blockHashList.index(missingBlockHashListElement)], missingBlockHashListElement)
+
+	def checkUpload(self, filepath, fileVer, blockHashList):
+		# call exposed_modify_file to check with metaData and get response OK
+		missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
+		self.eprint("missingBlockHashList (second): ", missingBlockHashList)
+		if missingBlockHashList == "OK":
+			return "OK"
+		return "need to upload again"
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
