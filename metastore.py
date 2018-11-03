@@ -64,35 +64,40 @@ class MetadataStore(rpyc.Service):
 	"""
 	def exposed_modify_file(self, filename, version, hashlist):
 		# TODO: check version first
-		missingBlockList = []
+		if filename in self.fileHashListMap:
+			if version < self.fileHashListMap[filename]["fileVer"]:
+				self.eprint("client try upload file, but version smaller than server")
+				return "NOT ALLOW"
+
+		missingBlockHashList = []
 		for h in hashlist:
 			if self.connBlockStore.root.exposed_has_block(h):
 				# TODO: handle block exist
 				self.eprint("blockstore has block: ", h)
 			else:
-				missingBlockList.append(h)
+				missingBlockHashList.append(h)
 		# no missing block
-		if len(missingBlockList) == 0:
-			self.eprint("No missingBlockList")
-			# client has finished upload new file
+		if len(missingBlockHashList) == 0:
+			self.eprint("No missingBlockHashList")
+			# client has finished upload NEW file
 			if filename not in self.fileHashListMap:
 				self.fileHashListMap[filename] ={"fileVer": 1, "hashList": hashlist}
 				self.eprint(self.fileHashListMap[filename])
 				self.eprint("=====Client has finished upload NEW file=====")
-				self.eprint("filename: ", filename, self.fileHashListMap[filename])
+				self.eprint("INFO: filename: ", filename, self.fileHashListMap[filename])
 				self.eprint("==========")
-			# client has finished upload overwrite file, add 1 to ver
+			# client has finished upload OVERWRITE file, add 1 to ver
 			elif filename in self.fileHashListMap:
 				self.fileHashListMap[filename]["fileVer"] = self.fileHashListMap[filename]["fileVer"] + 1
 				self.fileHashListMap[filename]["hashList"] = hashlist
 				self.eprint("=====Client has finished upload and OVERWRITE file=====")
-				self.eprint("filename: ", filename, self.fileHashListMap[filename])
+				self.eprint("INFO: filename: ", filename, self.fileHashListMap[filename])
 				self.eprint("==========")
 			return "OK"
 		else:
-			# return missingBlockList which client needs to upload block to
-			self.eprint("Find missingBlockList for file: ", filename, " return missingBlockList", missingBlockList)
-			return missingBlockList
+			# return missingBlockHashList which client needs to upload block to
+			self.eprint("Find missingBlockHashList for file: ", filename, " return missingBlockHashList", missingBlockHashList)
+			return missingBlockHashList
 
 	"""
 		DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided

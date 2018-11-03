@@ -26,6 +26,7 @@ class SurfStoreClient():
 		print("connected to blockStore root ", str(self.conn_blockStore.root))
 		# pass
 	def parseConfig(self, config):
+		# TODO: parse all config
 		dict = {}
 		with open(config, 'r') as file:
 			lines = [line.strip('\n') for line in file]
@@ -44,10 +45,10 @@ class SurfStoreClient():
 		# check local file exist
 		# call exposed_read_file(filename): CL check file with metaData and get ver, hl
 		# split file into block and blockHash
-		# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockList
+		# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockHashList
 		# 	metaData check all block status in blockHashList with BS
-		# 	BS response missing block to metaData, metaData create missingBlockList
-		# 	metaData response missingBlockList to CL
+		# 	BS response missing block to metaData, metaData create missingBlockHashList
+		# 	metaData response missingBlockHashList to CL
 		# start uploading, call exposed_store_block(h, block)
 		# When finishing upload, call exposed_modify_file to check with metaData and get response OK
 
@@ -63,26 +64,36 @@ class SurfStoreClient():
 			# split file into block and blockHash
 			blockHashList, blockList = UH.splitFileToBlockAndHash(filepath)
 
-			# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockList
-			self.eprint("call ModifyFile to get missingBlockList")
+			# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockHashList
+			self.eprint("call ModifyFile to get missingBlockHashList")
 			fileVer = fileVer + 1
-			missingBlockList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
-			self.eprint("missingBlockList (first): ", missingBlockList)
+			missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
 
-			if missingBlockList == "OK":
+			if missingBlockHashList == "OK":
 				# no need to upload
-				self.eprint("After checking missingBlockList, no missing, no need to upload")
+				self.eprint("After checking missingBlockHashList, no missing, no need to upload")
 				print("OK")
+			elif missingBlockHashList == "NOT ALLOW":
+				self.eprint("NOT ALLOW UPLOAD due to file version smaller than server")
 			else:
 				# start uploading, call exposed_store_block(h, block)
-				self.eprint("Get missingBlockList (first), start upload block")
-				for h, b in zip(blockHashList, blockList):
-					self.conn_blockStore.root.exposed_store_block(h, b)
+				self.eprint("Get missingBlockHashList (first)")
+				self.eprint("missingBlockHashList (first): ", missingBlockHashList)
+				# all missing, upload all
+				if len(missingBlockHashList) == len(blockList):
+					self.eprint("Start upload missing block (file total change)")
+					for h, b in zip(blockHashList, blockList):
+						self.conn_blockStore.root.exposed_store_block(h, b)
+				else:
+					self.eprint("Start upload missing block (file partial change)")
+					for missingBlockHashListElement in missingBlockHashList:
+						self.conn_blockStore.root.exposed_store_block(blockHashList[blockHashList.index(missingBlockHashListElement)], missingBlockHashListElement)
+
 				# When finishing upload, call exposed_modify_file to check with metaData and get response OK
 				self.eprint("Finish upload, checking uploaded file")
-				missingBlockList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
-				self.eprint("missingBlockList (second): ", missingBlockList)
-				if len(missingBlockList) == 0:
+				missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
+				self.eprint("missingBlockHashList (second): ", missingBlockHashList)
+				if len(missingBlockHashList) == 0:
 					print("OK")
 		else:
 			self.eprint("Local file not exist")
@@ -155,11 +166,15 @@ class UploadHelper():
 		blockList = []
 		blockHashList = []
 		fp = open(filepath, "rb")
+		# FIX: change back to 4096
+		# block = fp.read(3)
 		block = fp.read(4096)
 		while block:
 			blockList.append(block)
 			blockHashList.append(hashlib.sha256(block).hexdigest())
 			block = fp.read(4096)
+			# blockHashList.append("@@" + str(block) + "@@")
+			# block = fp.read(3)
 		# self.eprint("blockList: ", blockList)
 		# self.eprint("blockHashList: ", blockHashList)
 		# self.eprint("At client, split local file into block DONE")
