@@ -45,11 +45,13 @@ class MetadataStore(rpyc.Service):
         any datastructures you may need.
 	"""
 	def __init__(self, config):
+		self.config_dict = self.parseConfig(config)
+		self.connBlockStore = rpyc.connect("localhost", self.config_dict['block1'])
 		# fileHashListMap = {"filename": {fileVer: 0, hashList: ["HashValue1", "HashValue2"]}}
 		self.fileHashListMap = {}
 		self.fileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
 		self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
-		self.eprint("fileHashListMap: ", self.fileHashListMap)
+		# self.eprint("fileHashListMap: ", self.fileHashListMap)
 
 	"""
         ModifyFile(f,v,hl): Modifies file f so that it now contains the
@@ -61,17 +63,22 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	"""
 	def exposed_modify_file(self, filename, version, hashlist):
-		self.eprint("In exposed_modify_file, return missingBlockList")
+		# TODO: check version first
 		missingBlockList = []
-		print("block map: ", self.BS.blockMap)
 		for h in hashlist:
-			if self.BS.exposed_has_block(h):
+			if self.connBlockStore.root.exposed_has_block(h):
 				# TODO: handle block exist
-				self.eprint("BS has block(h)")
+				self.eprint("blockstore has block: ", h)
 			else:
 				missingBlockList.append(h)
-
-		return missingBlockList
+		if len(missingBlockList) == 0:
+			# client doesn't need to upload block
+			# add 1 to ver
+			return "OK"
+		else:
+			# return missingBlockList which client needs to upload block to
+			self.eprint("return file: ", filename, " missingBlockList", missingBlockList)
+			return missingBlockList
 
 	"""
         DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
@@ -93,23 +100,34 @@ class MetadataStore(rpyc.Service):
         method as an RPC call
 	"""
 	def exposed_read_file(self, filename):
-		self.eprint("In exposed_read_file, return fileVer, fileHashList")
+		self.eprint("Checking file: ", filename)
 		if filename in self.fileHashListMap:
-		   fileVer = self.fileHashlistMap[filename]["fileVer"]
-		   fileHashList = self.fileHashListMap[filename]["hashList"]
-		   return fileVer, fileHashList
+			fileVer = self.fileHashlistMap[filename]["fileVer"]
+		    fileHashList = self.fileHashListMap[filename]["hashList"]
+		    self.eprint("Get file: ", filename, " and return fileVer: ", fileVer, " and fileHashList")
+		    return fileVer, fileHashList
 
 		# file not exist
-		self.eprint("file not exist in server")
+		self.eprint("file: ", filename, " doesn't exist in server")
 		# we return fileVer = 0, fileHashList = []
 		return 0, []
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
 
-
+	def parseConfig(self, config):
+		dict = {}
+		with open(self.config, 'r') as file:
+			lines = [line.strip('\n') for line in file]
+			lines = lines[1:]
+			for line in lines:
+				temp = line.split(":")
+				dict[temp[0]] = temp[2]
+		return dict
 
 if __name__ == '__main__':
 	from rpyc.utils.server import ThreadPoolServer
-	server = ThreadPoolServer(MetadataStore(sys.argv[1]), port = 6000)
+	# server = ThreadPoolServer(MetadataStore(sys.argv[1]), port = 6000)
+	print("Start metastore...")
+	server = ThreadPoolServer(MetadataStore("localhost"), port = 6000)
 	server.start()

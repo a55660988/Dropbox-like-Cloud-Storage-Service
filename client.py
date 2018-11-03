@@ -60,26 +60,26 @@ class SurfStoreClient():
 			self.eprint("Local file exist")
 
 			# call exposed_read_file(filename): CL check file with metaData and get fileVer, fileHashList
-			fileVer, fileHashList = self.metaData.exposed_read_file(filepath)
+			fileVer, fileHashList = self.connMetadataStore.root.exposed_read_file(filepath)
 
 			# split file into block and blockHash
-			blockList, blockHashList = UH.splitFileToBlockAndHash(filepath)
+			blockHashList, blockList = UH.splitFileToBlockAndHash(filepath)
 
 			# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockList
 			self.eprint("call ModifyFile to get missingBlockList")
 			fileVer = fileVer + 1
-			missingBlockList = self.metaData.exposed_modify_file(filepath, fileVer, blockHashList)
-			self.eprint("missingBlockList1: ", missingBlockList)
+			missingBlockList = self.connMetadataStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
+			self.eprint("missingBlockList (first): ", missingBlockList)
 
 			# start uploading, call exposed_store_block(h, block)
-			self.eprint("Get missingBlockList, start upload")
+			self.eprint("Get missingBlockList (first), start upload block")
 			for h, b in zip(blockHashList, blockList):
-				self.blockStore.exposed_store_block(h, b)
+				self.connBlockStore.root.exposed_store_block(h, b)
 
 			# When finishing upload, call exposed_modify_file to check with metaData and get response OK
 			self.eprint("Finish upload, checking uploaded file")
-			missingBlockList = self.metaData.exposed_modify_file(filepath, fileVer, blockHashList)
-			self.eprint("missingBlockList2: ", missingBlockList)
+			missingBlockList = self.connMetadataStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
+			self.eprint("missingBlockList (second): ", missingBlockList)
 			if len(missingBlockList) == 0:
 				print("OK")
 		else:

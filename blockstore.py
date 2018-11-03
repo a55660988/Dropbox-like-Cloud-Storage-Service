@@ -28,11 +28,10 @@ class BlockStore(rpyc.Service):
 		method as an RPC call
 	"""
 	def exposed_store_block(self, h, block):
+		# TODO: worry about concurrency problem for count len(self.blockList)
+		self.eprint("storing block ", block, " to blockMap with index hashValue: ", h)
 		self.blockList.append(block)
 		self.blockMap[h] = len(self.blockList) - 1
-		# self.eprint("In exposed_store_block")
-		# print("block map: ", self.blockMap)
-		return "exposed_store_block DONE"
 
 	"""
 	b = get_block(h) : Retrieves a block indexed by hash value h
@@ -42,9 +41,10 @@ class BlockStore(rpyc.Service):
 	"""
 	def exposed_get_block(self, h):
 		if self.exposed_has_block(h):
+			self.eprint("Get blockMap with index hashValue: ", h)
 			return self.blockMap[h]
-		self.eprint("block doesn't exist with hashValue: ", h)
-		return "Block doesn't exist"
+		else:
+			self.eprint("blockMap doesn't exist with index hashValue: ", h)
 
 	"""
 		True/False = has_block(h) : Signals whether block indexed by h exists
@@ -58,8 +58,11 @@ class BlockStore(rpyc.Service):
 	"""
 	def exposed_has_block(self, h):
 		if h not in self.blockMap:
+			self.eprint("hashValue ", h, " doesn't exist in blockMap")
 			return False
-		return True
+		else:
+			self.eprint("hashValue ", h, " exist in blockMap")
+			return True
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
@@ -67,6 +70,8 @@ class BlockStore(rpyc.Service):
 
 if __name__ == '__main__':
 	from rpyc.utils.server import ThreadPoolServer
-	port = int(sys.argv[1])
+	# port = int(sys.argv[1])
+	print("Start blockstore...")
+	port = int(5000)
 	server = ThreadPoolServer(BlockStore(), port=port)
 	server.start()
