@@ -70,17 +70,21 @@ class SurfStoreClient():
 			missingBlockList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
 			self.eprint("missingBlockList (first): ", missingBlockList)
 
-			# start uploading, call exposed_store_block(h, block)
-			self.eprint("Get missingBlockList (first), start upload block")
-			for h, b in zip(blockHashList, blockList):
-				self.conn_blockStore.root.exposed_store_block(h, b)
-
-			# When finishing upload, call exposed_modify_file to check with metaData and get response OK
-			self.eprint("Finish upload, checking uploaded file")
-			missingBlockList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
-			self.eprint("missingBlockList (second): ", missingBlockList)
-			if len(missingBlockList) == 0:
+			if missingBlockList == "OK":
+				# no need to upload
+				self.eprint("After checking missingBlockList, no missing, no need to upload")
 				print("OK")
+			else:
+				# start uploading, call exposed_store_block(h, block)
+				self.eprint("Get missingBlockList (first), start upload block")
+				for h, b in zip(blockHashList, blockList):
+					self.conn_blockStore.root.exposed_store_block(h, b)
+				# When finishing upload, call exposed_modify_file to check with metaData and get response OK
+				self.eprint("Finish upload, checking uploaded file")
+				missingBlockList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
+				self.eprint("missingBlockList (second): ", missingBlockList)
+				if len(missingBlockList) == 0:
+					print("OK")
 		else:
 			self.eprint("Local file not exist")
 			print("Not Found")

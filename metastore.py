@@ -71,13 +71,27 @@ class MetadataStore(rpyc.Service):
 				self.eprint("blockstore has block: ", h)
 			else:
 				missingBlockList.append(h)
+		# no missing block
 		if len(missingBlockList) == 0:
-			# client doesn't need to upload block
-			# add 1 to ver
+			self.eprint("No missingBlockList")
+			# client has finished upload new file
+			if filename not in self.fileHashListMap:
+				self.fileHashListMap[filename] ={"fileVer": 1, "hashList": hashlist}
+				self.eprint(self.fileHashListMap[filename])
+				self.eprint("=====Client has finished upload NEW file=====")
+				self.eprint("filename: ", filename, self.fileHashListMap[filename])
+				self.eprint("==========")
+			# client has finished upload overwrite file, add 1 to ver
+			elif filename in self.fileHashListMap:
+				self.fileHashListMap[filename]["fileVer"] = self.fileHashListMap[filename]["fileVer"] + 1
+				self.fileHashListMap[filename]["hashList"] = hashlist
+				self.eprint("=====Client has finished upload and OVERWRITE file=====")
+				self.eprint("filename: ", filename, self.fileHashListMap[filename])
+				self.eprint("==========")
 			return "OK"
 		else:
 			# return missingBlockList which client needs to upload block to
-			self.eprint("return file: ", filename, " missingBlockList", missingBlockList)
+			self.eprint("Find missingBlockList for file: ", filename, " return missingBlockList", missingBlockList)
 			return missingBlockList
 
 	"""
@@ -106,7 +120,7 @@ class MetadataStore(rpyc.Service):
 		#################################################
 		self.eprint("Checking file: ", filename)
 		if filename in self.fileHashListMap:
-			fileVer = self.fileHashlistMap[filename]["fileVer"]
+			fileVer = self.fileHashListMap[filename]["fileVer"]
 			fileHashList = self.fileHashListMap[filename]["hashList"]
 			self.eprint("Get file: ", filename, " and return fileVer: ", fileVer, " and fileHashList")
 			return fileVer, fileHashList
@@ -133,5 +147,4 @@ if __name__ == '__main__':
 	from rpyc.utils.server import ThreadPoolServer
 	server = ThreadPoolServer(MetadataStore(sys.argv[1]), port = 6000)
 	print("Start metastore...")
-	# server = ThreadPoolServer(MetadataStore("localhost"), port = 6000)
 	server.start()
