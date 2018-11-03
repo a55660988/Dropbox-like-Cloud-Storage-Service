@@ -79,6 +79,5 @@ if __name__ == '__main__':
 	from rpyc.utils.server import ThreadPoolServer
 	port = int(sys.argv[1])
 	print("Start blockstore...")
-	# port = int(5000)
 	server = ThreadPoolServer(BlockStore(), port=port)
 	server.start()

@@ -20,21 +20,23 @@ class SurfStoreClient():
 	"""
 	def __init__(self, config):
 		self.config_dict = self.parseConfig(config)
-		self.conn_metaStore = rpyc.connect("localhost", self.config_dict['metadata'])
-		self.conn_blockStore = rpyc.connect("localhost", self.config_dict['block1'])
-		print("connected to metaStore root ", str(self.conn_metaStore.root))
-		print("connected to blockStore root ", str(self.conn_blockStore.root))
+		self.conn_metaStore = rpyc.connect(self.config_dict["metadata"]["host"], self.config_dict["metadata"]["port"])
+		self.eprint("connected to metaStore: ", self.config_dict["metadata"]["host"] + ":" + self.config_dict["metadata"]["port"])
+		for i in range(0, int(self.config_dict["B"])):
+			self.conn_blockStore = rpyc.connect(self.config_dict["block" + str(i)]["host"], self.config_dict["block" + str(i)]["port"])
+			self.eprint("connected to blockStore: ", self.config_dict["block" + str(i)]["host"] + ":" + self.config_dict["block" + str(i)]["port"])
 
 
 	def parseConfig(self, config):
-		# TODO: parse all config
 		dict = {}
 		with open(config, 'r') as file:
 			lines = [line.strip('\n') for line in file]
-			lines = lines[1:]
-			for line in lines:
+			# get number of block
+			temp = lines[0].split(":")
+			dict[temp[0]] = temp[1]
+			for line in lines[1:]:
 				temp = line.split(":")
-				dict[temp[0]] = temp[2]
+				dict[temp[0]] = {"host": temp[1].strip(), "port": temp[2].strip()}
 		return dict
 
 	"""
@@ -59,36 +61,45 @@ class SurfStoreClient():
 		if checkExist:
 			self.eprint("Local file exist")
 			filename = UH.filepathGetFilename(filepath)
-			# call exposed_read_file(filename): CL check file with metaData and get fileVer, fileHashList
-			fileVer, fileHashList = self.conn_metaStore.root.exposed_read_file(filename)
+			# for missingBlockHashList not empty, upload again
+			response = ""
+			while response != "OK":
+				# call exposed_read_file(filename): CL check file with metaData and get fileVer, fileHashList
+				fileVer, fileHashList = self.conn_metaStore.root.exposed_read_file(filename)
 
-			# split file into block and blockHash
-			blockHashList, blockList = UH.splitFileToBlockAndHash(filepath)
+				# split file into block and blockHash
+				blockHashList, blockList = UH.splitFileToBlockAndHash(filepath)
 
-			# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockHashList
-			self.eprint("call ModifyFile to get missingBlockHashList")
-			fileVer = fileVer + 1
-			missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList)
+				# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockHashList
+				self.eprint("call ModifyFile to get missingBlockHashList")
+				fileVer = fileVer + 1
+				missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList)
 
-			if missingBlockHashList == "OK":
-				# no need to upload
-				self.eprint("After checking missingBlockHashList, no missing, no need to upload")
-				print("OK")
+				if missingBlockHashList == "OK":
+					# no need to upload
+					self.eprint("After checking missingBlockHashList, no missing, no need to upload")
+					response = "OK"
+					print("OK")
 
-			elif missingBlockHashList == "NOT ALLOW":
-				self.eprint("NOT ALLOW UPLOAD due to file version smaller than server")
+				elif missingBlockHashList == "NOT ALLOW":
+					# TODO: output for user?
+					self.eprint("NOT ALLOW UPLOAD due to file version smaller than server")
+					break
 
-			else:
-				# start uploading, call exposed_store_block(h, block)
-				self.eprint("Get missingBlockHashList (first)")
-				self.eprint("missingBlockHashList (first): ", missingBlockHashList)
-				UH.startUpload(blockList, blockHashList, missingBlockHashList)
+				else:
+					# start uploading, call exposed_store_block(h, block)
+					self.eprint("Get missingBlockHashList (first)")
+					self.eprint("missingBlockHashList (first): ", missingBlockHashList)
+					UH.startUpload(blockList, blockHashList, missingBlockHashList)
 
-				# When finishing upload, check file
-				self.eprint("Finish upload, check uploaded file")
-				# TODO: missingBlockHashList not empty, upload again
-				response = UH.checkUpload(filename, fileVer, blockHashList)
-				print(response)
+					# When finishing upload, check file
+					self.eprint("Finish upload, check uploaded file")
+					response = UH.checkUpload(filename, fileVer, blockHashList)
+					if response == "OK":
+						print(response)
+					else:
+						self.eprint("check uploaded file ERROR, need to get newest ver and upload again")
+
 		else:
 			self.eprint("Local file not exist")
 			print("Not Found")

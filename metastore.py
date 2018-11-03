@@ -45,13 +45,17 @@ class MetadataStore(rpyc.Service):
 	"""
 	def __init__(self, config):
 		self.config_dict = self.parseConfig(config)
-		self.connBlockStore = rpyc.connect("localhost", self.config_dict['block1'])
+		for i in range(0, int(self.config_dict["B"])):
+			self.conn_blockStore = rpyc.connect(self.config_dict["block" + str(i)]["host"], self.config_dict["block" + str(i)]["port"])
+			self.eprint("connected to blockStore: ", self.config_dict["block" + str(i)]["host"] + ":" + self.config_dict["block" + str(i)]["port"])
 		# fileHashListMap = {"filename": {fileVer: 0, hashList: ["HashValue1", "HashValue2"]}}
 		self.fileHashListMap = {}
 		self.deleteFiles = []
 		# self.fileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
 		# self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
 		# self.eprint("fileHashListMap: ", self.fileHashListMap)
+
+
 
 	"""
 		ModifyFile(f,v,hl): Modifies file f so that it now contains the
@@ -74,7 +78,7 @@ class MetadataStore(rpyc.Service):
 
 		missingBlockHashList = []
 		for h in hashlist:
-			if self.connBlockStore.root.exposed_has_block(h):
+			if self.conn_blockStore.root.exposed_has_block(h):
 				# TODO: handle block exist
 				self.eprint("blockstore has block: ", h)
 			else:
@@ -162,10 +166,12 @@ class MetadataStore(rpyc.Service):
 		dict = {}
 		with open(config, 'r') as file:
 			lines = [line.strip('\n') for line in file]
-			lines = lines[1:]
-			for line in lines:
+			# get number of block
+			temp = lines[0].split(":")
+			dict[temp[0]] = temp[1]
+			for line in lines[1:]:
 				temp = line.split(":")
-				dict[temp[0]] = temp[2]
+				dict[temp[0]] = {"host": temp[1].strip(), "port": temp[2].strip()}
 		return dict
 
 if __name__ == '__main__':
