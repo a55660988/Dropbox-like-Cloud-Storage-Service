@@ -98,6 +98,7 @@ class SurfStoreClient():
 	delete(filename) : Signals the MetadataStore to delete a file.
 	"""
 	def delete(self, filename):
+
 		pass
 
 	"""
@@ -123,21 +124,22 @@ class SurfStoreClient():
 		fileVer, hashList = self.conn_metaStore.root.read_file(filename)
 
 	# getBlock() from blockstore
-		blocks = []
-		for h in hashList:
-			blocks.append(self.conn_blockStore.root.get_block(h))
-	# merge blocks to form file & write out file
-		if location != "":
-			fname = location + "/"
+		if hashList:
+			blocks = []
+			for h in hashList:
+				blocks.append(self.conn_blockStore.root.get_block(h))
+		# merge blocks to form file & write out file
+			if location != "":
+				fname = location + "/"
+			else:
+				fname = ""
+			fout = open(file, 'wb')
+			for block in blocks:
+				fout.write(block)
+			fout.close()
+			print("File " + str(filename) + " Downloaded successfully")
 		else:
-			fname = ""
-		fout = open(file, 'wb')
-		for block in blocks:
-			fout.write(block)
-		fout.close()
-
-		''' singal user '''
-		print("File " + str(filename) + " Downloaded successfully")
+			print("File doesn't exist on server")
 
 	"""
 	 Use eprint to print debug messages to stderr
