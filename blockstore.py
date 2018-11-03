@@ -16,6 +16,11 @@ class BlockStore(rpyc.Service):
 	"""
 	def __init__(self):
 		# blockMap = {"HashValue1": block0, "HashValue2": block1}
+		## test for download
+		#################################################
+		### self.blockMap = {"12344":0, "testtest": 1, "test1": 2} ##
+		### self.blockList = [b'12344 block', b'testtest block', b'test1 block'] ##
+		#################################################
 		self.blockMap = {}
 		self.blockList = []
 		# self.eprint("blockList: ", self.blockList)
@@ -42,7 +47,7 @@ class BlockStore(rpyc.Service):
 	def exposed_get_block(self, h):
 		if self.exposed_has_block(h):
 			self.eprint("Get blockMap with index hashValue: ", h)
-			return self.blockMap[h]
+			return self.blockList[self.blockMap[h]]
 		else:
 			self.eprint("blockMap doesn't exist with index hashValue: ", h)
 

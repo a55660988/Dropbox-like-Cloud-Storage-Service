@@ -19,23 +19,21 @@ class SurfStoreClient():
 	metadata store using the config file
 	"""
 	def __init__(self, config):
-		self.config = config
 		self.config_dict = self.parseConfig(config)
 		self.conn_metaStore = rpyc.connect("localhost", self.config_dict['metadata'])
 		self.conn_blockStore = rpyc.connect("localhost", self.config_dict['block1'])
 		print("connected to metaStore root ", str(self.conn_metaStore.root))
-
+		print("connected to blockStore root ", str(self.conn_blockStore.root))
 		# pass
 	def parseConfig(self, config):
 		dict = {}
-		with open(self.config, 'r') as file:
+		with open(config, 'r') as file:
 			lines = [line.strip('\n') for line in file]
 			lines = lines[1:]
 			for line in lines:
 				temp = line.split(":")
 				dict[temp[0]] = temp[2]
 		return dict
-
 
 	"""
 	upload(filepath)) : Reads the local file, creates a set of
@@ -60,7 +58,7 @@ class SurfStoreClient():
 			self.eprint("Local file exist")
 
 			# call exposed_read_file(filename): CL check file with metaData and get fileVer, fileHashList
-			fileVer, fileHashList = self.connMetadataStore.root.exposed_read_file(filepath)
+			fileVer, fileHashList = self.conn_metaStore.root.exposed_read_file(filepath)
 
 			# split file into block and blockHash
 			blockHashList, blockList = UH.splitFileToBlockAndHash(filepath)
@@ -68,17 +66,17 @@ class SurfStoreClient():
 			# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockList
 			self.eprint("call ModifyFile to get missingBlockList")
 			fileVer = fileVer + 1
-			missingBlockList = self.connMetadataStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
+			missingBlockList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
 			self.eprint("missingBlockList (first): ", missingBlockList)
 
 			# start uploading, call exposed_store_block(h, block)
 			self.eprint("Get missingBlockList (first), start upload block")
 			for h, b in zip(blockHashList, blockList):
-				self.connBlockStore.root.exposed_store_block(h, b)
+				self.conn_blockStore.root.exposed_store_block(h, b)
 
 			# When finishing upload, call exposed_modify_file to check with metaData and get response OK
 			self.eprint("Finish upload, checking uploaded file")
-			missingBlockList = self.connMetadataStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
+			missingBlockList = self.conn_metaStore.root.exposed_modify_file(filepath, fileVer, blockHashList)
 			self.eprint("missingBlockList (second): ", missingBlockList)
 			if len(missingBlockList) == 0:
 				print("OK")
@@ -110,11 +108,11 @@ class SurfStoreClient():
 		else:
 			print("not existed")
 	# ask metadata for hashlist
-		ver, hashList = self.conn_metaStore.read_file(filename)
+		ver, hashList = self.conn_metaStore.root.read_file(filename)
 	# getBlock() from blockstore
 		blocks = []
 		for h in hashList:
-			blocks.append(self.conn_blockStore.get_block(h))
+			blocks.append(self.conn_blockStore.root.get_block(h))
 	# merge blocks to form file & write out file
 		# blocks = [b'hello', b'cse 224', b'hw5']
 		if location != "":
@@ -169,16 +167,13 @@ class UploadHelper():
 
 
 if __name__ == '__main__':
-
 	client = SurfStoreClient(sys.argv[1])
-
 	operation = sys.argv[2]
-	client.download(sys.argv[3], sys.argv[4])
-	# if operation == 'upload':
-	# 	client.upload(sys.argv[3])
-	# elif operation == 'download':
-		# client.download(sys.argv[3], sys.argv[4])
-	# elif operation == 'delete':
-	# 	client.delete(sys.argv[3])
-	# else:
-	# 	print("Invalid operation")
+	if operation == 'upload':
+		client.upload(sys.argv[3])
+	elif operation == 'download':
+		client.download(sys.argv[3], sys.argv[4])
+	elif operation == 'delete':
+		client.delete(sys.argv[3])
+	else:
+		print("Invalid operation")

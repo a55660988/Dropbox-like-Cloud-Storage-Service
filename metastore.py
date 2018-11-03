@@ -41,8 +41,8 @@ maintain the data.
 class MetadataStore(rpyc.Service):
 
 	"""
-        Initialize the class using the config file provided and also initialize
-        any datastructures you may need.
+		Initialize the class using the config file provided and also initialize
+		any datastructures you may need.
 	"""
 	def __init__(self, config):
 		self.config_dict = self.parseConfig(config)
@@ -54,13 +54,13 @@ class MetadataStore(rpyc.Service):
 		# self.eprint("fileHashListMap: ", self.fileHashListMap)
 
 	"""
-        ModifyFile(f,v,hl): Modifies file f so that it now contains the
-        contents refered to by the hashlist hl.  The version provided, v, must
-        be exactly one larger than the current version that the MetadataStore
-        maintains.
+		ModifyFile(f,v,hl): Modifies file f so that it now contains the
+		contents refered to by the hashlist hl.  The version provided, v, must
+		be exactly one larger than the current version that the MetadataStore
+		maintains.
 
-        As per rpyc syntax, adding the prefix 'exposed_' will expose this
-        method as an RPC call
+		As per rpyc syntax, adding the prefix 'exposed_' will expose this
+		method as an RPC call
 	"""
 	def exposed_modify_file(self, filename, version, hashlist):
 		# TODO: check version first
@@ -81,31 +81,35 @@ class MetadataStore(rpyc.Service):
 			return missingBlockList
 
 	"""
-        DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
-        version number v must be one bigger than the most up-date-date version.
+		DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
+		version number v must be one bigger than the most up-date-date version.
 
-        As per rpyc syntax, adding the prefix 'exposed_' will expose this
-        method as an RPC call
+		As per rpyc syntax, adding the prefix 'exposed_' will expose this
+		method as an RPC call
 		"""
 	def exposed_delete_file(self, filename, version):
 		pass
 
 
 	"""
-        (v,hl) = ReadFile(f): Reads the file with filename f, returning the
-        most up-to-date version number v, and the corresponding hashlist hl. If
-        the file does not exist, v will be 0.
+		(v,hl) = ReadFile(f): Reads the file with filename f, returning the
+		most up-to-date version number v, and the corresponding hashlist hl. If
+		the file does not exist, v will be 0.
 
-        As per rpyc syntax, adding the prefix 'exposed_' will expose this
-        method as an RPC call
+		As per rpyc syntax, adding the prefix 'exposed_' will expose this
+		method as an RPC call
 	"""
 	def exposed_read_file(self, filename):
+		## test for download
+		#################################################
+		### return 1, ["12344", "testtest", "test1"]  ###
+		#################################################
 		self.eprint("Checking file: ", filename)
 		if filename in self.fileHashListMap:
 			fileVer = self.fileHashlistMap[filename]["fileVer"]
-		    fileHashList = self.fileHashListMap[filename]["hashList"]
-		    self.eprint("Get file: ", filename, " and return fileVer: ", fileVer, " and fileHashList")
-		    return fileVer, fileHashList
+			fileHashList = self.fileHashListMap[filename]["hashList"]
+			self.eprint("Get file: ", filename, " and return fileVer: ", fileVer, " and fileHashList")
+			return fileVer, fileHashList
 
 		# file not exist
 		self.eprint("file: ", filename, " doesn't exist in server")
@@ -117,7 +121,7 @@ class MetadataStore(rpyc.Service):
 
 	def parseConfig(self, config):
 		dict = {}
-		with open(self.config, 'r') as file:
+		with open(config, 'r') as file:
 			lines = [line.strip('\n') for line in file]
 			lines = lines[1:]
 			for line in lines:
@@ -127,7 +131,7 @@ class MetadataStore(rpyc.Service):
 
 if __name__ == '__main__':
 	from rpyc.utils.server import ThreadPoolServer
-	# server = ThreadPoolServer(MetadataStore(sys.argv[1]), port = 6000)
+	server = ThreadPoolServer(MetadataStore(sys.argv[1]), port = 6000)
 	print("Start metastore...")
-	server = ThreadPoolServer(MetadataStore("localhost"), port = 6000)
+	# server = ThreadPoolServer(MetadataStore("localhost"), port = 6000)
 	server.start()
