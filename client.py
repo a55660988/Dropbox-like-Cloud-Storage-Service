@@ -22,9 +22,10 @@ class SurfStoreClient():
 		self.config_dict = self.parseConfig(config)
 		self.conn_metaStore = rpyc.connect(self.config_dict["metadata"]["host"], self.config_dict["metadata"]["port"])
 		self.eprint("connected to metaStore: ", self.config_dict["metadata"]["host"] + ":" + self.config_dict["metadata"]["port"])
+		self.conn_blockStore = []
 		for i in range(0, int(self.config_dict["B"])):
-			self.conn_blockStore = rpyc.connect(self.config_dict["block" + str(i)]["host"], self.config_dict["block" + str(i)]["port"])
-			self.eprint("connected to blockStore: ", self.config_dict["block" + str(i)]["host"] + ":" + self.config_dict["block" + str(i)]["port"])
+			self.conn_blockStore.append(rpyc.connect(self.config_dict["block" + str(i)]["host"], self.config_dict["block" + str(i)]["port"]))
+			self.eprint("connected to blockStore" + str(i) + ": ", self.config_dict["block" + str(i)]["host"] + ":" + self.config_dict["block" + str(i)]["port"])
 
 
 	def parseConfig(self, config):
@@ -55,7 +56,7 @@ class SurfStoreClient():
 		# start uploading, call exposed_store_block(h, block)
 		# When finishing upload, call exposed_modify_file to check with metaData and get response OK
 
-		UH = UploadHelper(self.conn_metaStore, self.conn_blockStore)
+		UH = UploadHelper(self.conn_metaStore, self.conn_blockStore, self.config_dict)
 		# check local file exist
 		filepath, checkExist = UH.checkFileExist(filepath)
 		if checkExist:
@@ -142,7 +143,7 @@ class SurfStoreClient():
 		if hashList:
 			blocks = []
 			for h in hashList:
-				blocks.append(self.conn_blockStore.root.get_block(h))
+				blocks.append(self.conn_blockStore[self.findServer(h)].root.get_block(h))
 		# merge blocks to form file & write out file
 			if location != "":
 				fname = location + "/"
@@ -156,6 +157,9 @@ class SurfStoreClient():
 		else:
 			print("File doesn't exist on server")
 
+	def findServer(self, h):
+		return int(h, 16) % int(self.config_dict["B"])
+
 	"""
 	 Use eprint to print debug messages to stderr
 	 E.g -
@@ -167,7 +171,8 @@ class SurfStoreClient():
 
 class UploadHelper():
 
-	def __init__(self, conn_metaStore, conn_blockStore):
+	def __init__(self, conn_metaStore, conn_blockStore, config_dict):
+		self.config_dict = config_dict
 		self.conn_metaStore = conn_metaStore
 		self.conn_blockStore = conn_blockStore
 
@@ -212,7 +217,7 @@ class UploadHelper():
 		if len(missingBlockHashList) == len(blockList):
 			self.eprint("Start upload missing block (file total change)")
 			for h, b in zip(blockHashList, blockList):
-				self.conn_blockStore.root.exposed_store_block(h, b)
+				self.conn_blockStore[self.findServer(h)].root.exposed_store_block(h, b)
 		# partial missing, upload missing block
 		else:
 			self.eprint("Start upload missing block (file partial change)")
@@ -229,6 +234,10 @@ class UploadHelper():
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
+
+	def findServer(self, h):
+		return int(h, 16) % int(self.config_dict["B"])
+
 
 
 

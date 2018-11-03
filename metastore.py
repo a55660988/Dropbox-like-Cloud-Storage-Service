@@ -45,9 +45,10 @@ class MetadataStore(rpyc.Service):
 	"""
 	def __init__(self, config):
 		self.config_dict = self.parseConfig(config)
+		self.conn_blockStore = []
 		for i in range(0, int(self.config_dict["B"])):
-			self.conn_blockStore = rpyc.connect(self.config_dict["block" + str(i)]["host"], self.config_dict["block" + str(i)]["port"])
-			self.eprint("connected to blockStore: ", self.config_dict["block" + str(i)]["host"] + ":" + self.config_dict["block" + str(i)]["port"])
+			self.conn_blockStore.append(rpyc.connect(self.config_dict["block" + str(i)]["host"], self.config_dict["block" + str(i)]["port"]))
+			self.eprint("connected to blockStore" + str(i) + ": ", self.config_dict["block" + str(i)]["host"] + ":" + self.config_dict["block" + str(i)]["port"])
 		# fileHashListMap = {"filename": {fileVer: 0, hashList: ["HashValue1", "HashValue2"]}}
 		self.fileHashListMap = {}
 		self.deleteFiles = []
@@ -75,7 +76,7 @@ class MetadataStore(rpyc.Service):
 
 		missingBlockHashList = []
 		for h in hashlist:
-			if self.conn_blockStore.root.exposed_has_block(h):
+			if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
 				# TODO: handle block exist
 				self.eprint("blockstore has block: ", h)
 			else:
@@ -155,6 +156,9 @@ class MetadataStore(rpyc.Service):
 		self.eprint("file: ", filename, " doesn't exist in server")
 		# we return fileVer = 0, fileHashList = []
 		return fileVer, fileHashList
+
+	def findServer(self, h):
+		return int(h, 16) % int(self.config_dict["B"])
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
