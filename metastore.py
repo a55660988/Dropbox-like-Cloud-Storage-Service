@@ -69,6 +69,9 @@ class MetadataStore(rpyc.Service):
 	"""
 	def exposed_modify_file(self, filename, version, hashlist):
 		# TODO: check version first
+		if filename in self.deleteFiles:
+			self.deleteFiles.remove(filename)
+
 		if filename in self.fileHashListMap:
 			if version < self.fileHashListMap[filename]["fileVer"]:
 				self.eprint("client try upload file, but version smaller than server")
