@@ -109,13 +109,20 @@ class SurfStoreClient():
 	"""
 	delete(filename) : Signals the MetadataStore to delete a file.
 	"""
+	# empty file: fileVer > 0 & fileHashList is empty
+	# deleted file : fileVer > 0 & fileHashList is empty
+	#
 	def delete(self, filename):
 		fileVer, fileHashList = self.conn_metaStore.root.read_file(filename)
-		if not fileHashList:
+		if not fileHashList and fileVer == 0:
 			print("Not Found")
 		else:
 			self.conn_metaStore.root.delete_file(filename, fileVer+1)
+		newFileVer, newFileHashList = self.conn_metaStore.root.read_file(filename)
+		if newFileVer == fileVer + 1 and newFileHashList:
 			print("OK")
+		else:
+			self.eprint("delete fail")
 
 	"""
 		download(filename, dst) : Downloads a file (f) from SurfStore and saves
