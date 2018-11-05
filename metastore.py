@@ -68,10 +68,7 @@ class MetadataStore(rpyc.Service):
 		method as an RPC call
 	"""
 	def exposed_modify_file(self, filename, version, hashlist):
-		# TODO: check version first
-		if filename in self.deleteFiles:
-			self.deleteFiles.remove(filename)
-
+		# TODO: check version first and handle lock
 		if filename in self.fileHashListMap:
 			if version < self.fileHashListMap[filename]["fileVer"]:
 				self.eprint("client try upload file, but version smaller than server")
@@ -90,6 +87,9 @@ class MetadataStore(rpyc.Service):
 			# client has finished upload NEW file
 			if filename not in self.fileHashListMap:
 				self.fileHashListMap[filename] ={"fileVer": 1, "hashList": tuple(hashlist)}
+				# update deletefiles list
+				if filename in self.deleteFiles:
+					self.deleteFiles.remove(filename)
 				self.eprint(self.fileHashListMap[filename])
 				self.eprint("=====Client has finished upload NEW file=====")
 				self.eprint("INFO: filename: ", filename, self.fileHashListMap[filename])
@@ -98,6 +98,9 @@ class MetadataStore(rpyc.Service):
 			elif filename in self.fileHashListMap:
 				self.fileHashListMap[filename]["fileVer"] = self.fileHashListMap[filename]["fileVer"] + 1
 				self.fileHashListMap[filename]["hashList"] = tuple(hashlist)
+				# update deletefiles list
+				if filename in self.deleteFiles:
+					self.deleteFiles.remove(filename)
 				self.eprint("=====Client has finished upload and OVERWRITE file=====")
 				self.eprint("INFO: filename: ", filename, self.fileHashListMap[filename])
 				self.eprint("==========")
