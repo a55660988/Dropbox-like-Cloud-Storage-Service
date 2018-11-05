@@ -217,7 +217,17 @@ class UploadHelper():
 		if len(missingBlockHashList) == len(blockList):
 			self.eprint("Start upload missing block (file total change)")
 			for h, b in zip(blockHashList, blockList):
-				self.conn_blockStore[self.findServer(h)].root.exposed_store_block(h, b)
+				# to avoid other client has finish uploaded file, same block upload again
+				# thus, when start upload each block, check again whether hashblock exist in server
+				# if exist, no need to upload the same block again
+				if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
+					self.eprint("Block exists in server, no need to upload hashblock: ", h)
+					continue
+				# if not, upload
+				else:
+					self.eprint("hashblock not exists in server, need to upload block and hashblock: ", h)
+					self.conn_blockStore[self.findServer(h)].root.exposed_store_block(h, b)
+
 		# partial missing, upload missing block
 		else:
 			self.eprint("Start upload missing block (file partial change)")
