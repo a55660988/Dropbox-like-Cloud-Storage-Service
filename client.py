@@ -121,6 +121,7 @@ class SurfStoreClient():
 		it to (dst) folder. Ensures not to download unnecessary blocks.
 	"""
 	def download(self, filename, location):
+		UH = UploadHelper(self.conn_metaStore, self.conn_blockStore, self.config_dict)
 	# check if filename exists in location
 		if location == "":
 			file = Path(filename)
@@ -128,22 +129,24 @@ class SurfStoreClient():
 			file = Path("/".join([location, filename]))
 		self.eprint("searched file path: ", file)
 
-		# if file.is_file():
-		# 	# raise Exception("File already exists")
-		# else:
-		# 	print("not existed")
 	# ask metadata for hashlist
 		self.eprint("finished checking if the directory is avaliable")
 		# ver, hashList = self.conn_metaStore.root.read_file(filename)
 		self.eprint("file name: ", filename)
-		fileVer, hashList = self.conn_metaStore.root.read_file(filename)
 
+		fileVer, hashList = self.conn_metaStore.root.read_file(filename)
+		if file.is_file(): #file exists locally
+			blockHashList, blockList = UH.splitFileToBlockAndHash(file)
 
 	# getBlock() from blockstore
 		if hashList:
 			blocks = []
 			for h in hashList:
-				blocks.append(self.conn_blockStore[self.findServer(h)].root.get_block(h))
+				if h in blockHashList:
+					self.eprint("block already exist ", blockHashList.index(h))
+					blocks.append(blockList[blockHashList.index(h)])
+				else:
+					blocks.append(self.conn_blockStore[self.findServer(h)].root.get_block(h))
 		# merge blocks to form file & write out file
 			if location != "":
 				fname = location + "/"
@@ -200,11 +203,11 @@ class UploadHelper():
 		fp = open(filepath, "rb")
 		# FIX: change back to 4096
 		# block = fp.read(3)
-		block = fp.read(4096)
+		block = fp.read(2)
 		while block:
 			blockList.append(block)
 			blockHashList.append(hashlib.sha256(block).hexdigest())
-			block = fp.read(4096)
+			block = fp.read(2)
 			# blockHashList.append("@@" + str(block) + "@@")
 			# block = fp.read(3)
 		# self.eprint("blockList: ", blockList)
