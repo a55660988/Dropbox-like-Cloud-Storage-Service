@@ -117,9 +117,10 @@ class MetadataStore(rpyc.Service):
 	def exposed_delete_file(self, filename, version):
 		verNum = self.fileHashListMap[filename]["fileVer"]
 		if version <= verNum:
-			print("Version not allowed")
+			self.eprint("Version not allowed")
 		else:
 			self.fileHashListMap[filename]["fileVer"] = verNum + 1
+			self.fileHashListMap[filename]["hashList"] = []
 			self.deleteFiles.append(filename)
 			self.eprint(filename, "with version number: ", verNum, " is deleted")
 			self.eprint(self.deleteFiles)

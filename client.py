@@ -111,8 +111,8 @@ class SurfStoreClient():
 	"""
 	def delete(self, filename):
 		fileVer, fileHashList = self.conn_metaStore.root.read_file(filename)
-		if fileVer == 0:
-			print("file doesn't exist")
+		if not fileHashList:
+			print("Not Found")
 		else:
 			self.conn_metaStore.root.delete_file(filename, fileVer+1)
 
@@ -128,10 +128,10 @@ class SurfStoreClient():
 			file = Path("/".join([location, filename]))
 		self.eprint("searched file path: ", file)
 
-		if file.is_file():
-			raise Exception("File already exists")
-		else:
-			print("not existed")
+		# if file.is_file():
+		# 	# raise Exception("File already exists")
+		# else:
+		# 	print("not existed")
 	# ask metadata for hashlist
 		self.eprint("finished checking if the directory is avaliable")
 		# ver, hashList = self.conn_metaStore.root.read_file(filename)
@@ -153,9 +153,9 @@ class SurfStoreClient():
 			for block in blocks:
 				fout.write(block)
 			fout.close()
-			print("File " + str(filename) + " Downloaded successfully")
+			print("OK")
 		else:
-			print("File doesn't exist on server")
+			print("Not Found")
 
 	def findServer(self, h):
 		return int(h, 16) % int(self.config_dict["B"])
