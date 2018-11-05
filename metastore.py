@@ -1,9 +1,8 @@
 import rpyc
 import sys
 
-
 '''
-A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues - 
+A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues -
 1. The file being modified has missing blocks in the block store.
 2. The file being read/deleted does not exist.
 3. The request for modifying/deleting a file has the wrong file version.
@@ -26,6 +25,9 @@ class ErrorResponse(Exception):
 	def file_not_found(self):
 		self.error_type = 3
 
+	def file_already_exist(self):
+		self.error_type = 4
+
 
 
 '''
@@ -36,52 +38,152 @@ metadata is stored in memory, and no database systems or files will be used to
 maintain the data.
 '''
 class MetadataStore(rpyc.Service):
-	
 
 	"""
-        Initialize the class using the config file provided and also initialize
-        any datastructures you may need.
+		Initialize the class using the config file provided and also initialize
+		any datastructures you may need.
 	"""
 	def __init__(self, config):
-		pass
+		self.config_dict = self.parseConfig(config)
+		self.conn_blockStore = []
+		for i in range(0, int(self.config_dict["B"])):
+			self.conn_blockStore.append(rpyc.connect(self.config_dict["block" + str(i)]["host"], self.config_dict["block" + str(i)]["port"]))
+			self.eprint("connected to blockStore" + str(i) + ": ", self.config_dict["block" + str(i)]["host"] + ":" + self.config_dict["block" + str(i)]["port"])
+		# fileHashListMap = {"filename": {fileVer: 0, hashList: ["HashValue1", "HashValue2"]}}
+		self.fileHashListMap = {}
+		self.deleteFiles = []
+		# self.fileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
+		# self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
+		# self.eprint("fileHashListMap: ", self.fileHashListMap)
 
-	'''
-        ModifyFile(f,v,hl): Modifies file f so that it now contains the
-        contents refered to by the hashlist hl.  The version provided, v, must
-        be exactly one larger than the current version that the MetadataStore
-        maintains.
 
-        As per rpyc syntax, adding the prefix 'exposed_' will expose this
-        method as an RPC call
-	'''
+
+	"""
+		ModifyFile(f,v,hl): Modifies file f so that it now contains the
+		contents refered to by the hashlist hl.  The version provided, v, must
+		be exactly one larger than the current version that the MetadataStore
+		maintains.
+
+		As per rpyc syntax, adding the prefix 'exposed_' will expose this
+		method as an RPC call
+	"""
 	def exposed_modify_file(self, filename, version, hashlist):
-		
+		# TODO: check version first and handle lock
+		if filename in self.fileHashListMap:
+			if version <= self.fileHashListMap[filename]["fileVer"]:
+				self.eprint("client try upload file, but version not larger than server")
+				return "NOT ALLOW"
 
-	'''
-        DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
-        version number v must be one bigger than the most up-date-date version.
+		missingBlockHashList = []
+		for h in hashlist:
+			if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
+				# TODO: handle block exist
+				self.eprint("blockstore has block: ", h)
+			else:
+				missingBlockHashList.append(h)
+		# no missing block
+		if len(missingBlockHashList) == 0:
+			self.eprint("No missingBlockHashList")
+			# client has finished upload NEW file
+			if filename not in self.fileHashListMap:
+				self.fileHashListMap[filename] ={"fileVer": 1, "hashList": tuple(hashlist)}
+				# update deletefiles list
+				if filename in self.deleteFiles:
+					self.deleteFiles.remove(filename)
+				self.eprint(self.fileHashListMap[filename])
+				self.eprint("=====Client has finished upload NEW file=====")
+				self.eprint("INFO: filename: ", filename, self.fileHashListMap[filename])
+				self.eprint("==========")
+			# client has finished upload OVERWRITE file, add 1 to ver
+			elif filename in self.fileHashListMap:
+				self.fileHashListMap[filename]["fileVer"] = self.fileHashListMap[filename]["fileVer"] + 1
+				self.fileHashListMap[filename]["hashList"] = tuple(hashlist)
+				# update deletefiles list
+				if filename in self.deleteFiles:
+					self.deleteFiles.remove(filename)
+				self.eprint("=====Client has finished upload and OVERWRITE file=====")
+				self.eprint("INFO: filename: ", filename, self.fileHashListMap[filename])
+				self.eprint("==========")
+			return "OK"
+		else:
+			# return missingBlockHashList which client needs to upload block to
+			self.eprint("Find missingBlockHashList for file: ", filename, " return missingBlockHashList", missingBlockHashList)
+			return missingBlockHashList
 
-        As per rpyc syntax, adding the prefix 'exposed_' will expose this
-        method as an RPC call
-	'''
+	"""
+		DeleteFile(f,v): Deletes file f. Like ModifyFile(), the provided
+		version number v must be one bigger than the most up-date-date version.
+
+		As per rpyc syntax, adding the prefix 'exposed_' will expose this
+		method as an RPC call
+		"""
 	def exposed_delete_file(self, filename, version):
-		pass
+		verNum = self.fileHashListMap[filename]["fileVer"]
+		if version <= verNum:
+			self.eprint("Version not allowed")
+		else:
+			self.fileHashListMap[filename]["fileVer"] = verNum + 1
+			self.fileHashListMap[filename]["hashList"] = []
+			self.deleteFiles.append(filename)
+			self.eprint(filename, "with version number: ", verNum, " is deleted")
+			self.eprint(self.deleteFiles)
 
 
-	'''
-        (v,hl) = ReadFile(f): Reads the file with filename f, returning the
-        most up-to-date version number v, and the corresponding hashlist hl. If
-        the file does not exist, v will be 0.
+	"""
+		(v,hl) = ReadFile(f): Reads the file with filename f, returning the
+		most up-to-date version number v, and the corresponding hashlist hl. If
+		the file does not exist, v will be 0.
 
-        As per rpyc syntax, adding the prefix 'exposed_' will expose this
-        method as an RPC call
-	'''
+		As per rpyc syntax, adding the prefix 'exposed_' will expose this
+		method as an RPC call
+	"""
 	def exposed_read_file(self, filename):
-		pass
+		## test for download
+		#################################################
+		### return 1, ["12344", "testtest", "test1"]  ###
+		#################################################
+		# print("!!!!!!!!!!=============hashList id: " + str(self.fileHashListMap))
+		if filename not in self.deleteFiles:
+			self.eprint("not deleted file")
+			if filename in self.fileHashListMap:
+				self.eprint("not deleted ")
+				fileVer = self.fileHashListMap[filename]["fileVer"]
+				fileHashList = self.fileHashListMap[filename]["hashList"]
+			else:
+				fileVer = 0
+				fileHashList = []
+		else:
+			if filename in self.fileHashListMap:
+				fileVer = self.fileHashListMap[filename]["fileVer"]
+				fileHashList = []
+			else:
+				fileVer = 0
+				fileHashList = []
+		# file not exist
+		self.eprint("file: ", filename, " doesn't exist in server")
+		# we return fileVer = 0, fileHashList = []
+		return fileVer, fileHashList
 
+	def findServer(self, h):
+		return int(h, 16) % int(self.config_dict["B"])
+
+	def eprint(*args, **kwargs):
+		print(*args, file=sys.stderr, **kwargs)
+
+	def parseConfig(self, config):
+		dict = {}
+		with open(config, 'r') as file:
+			lines = [line.strip('\n') for line in file]
+			# get number of block
+			temp = lines[0].split(":")
+			dict[temp[0]] = temp[1]
+			for line in lines[1:]:
+				temp = line.split(":")
+				dict[temp[0]] = {"host": temp[1].strip(), "port": temp[2].strip()}
+		return dict
 
 if __name__ == '__main__':
 	from rpyc.utils.server import ThreadPoolServer
 	server = ThreadPoolServer(MetadataStore(sys.argv[1]), port = 6000)
+	print("Start metastore...")
 	server.start()
-
