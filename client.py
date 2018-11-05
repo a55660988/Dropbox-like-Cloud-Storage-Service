@@ -119,7 +119,7 @@ class SurfStoreClient():
 		else:
 			self.conn_metaStore.root.delete_file(filename, fileVer+1)
 		newFileVer, newFileHashList = self.conn_metaStore.root.read_file(filename)
-		if newFileVer == fileVer + 1 and newFileHashList:
+		if newFileVer == fileVer + 1 and not newFileHashList:
 			print("OK")
 		else:
 			self.eprint("delete fail")
