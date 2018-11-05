@@ -138,6 +138,8 @@ class SurfStoreClient():
 		fileVer, hashList = self.conn_metaStore.root.read_file(filename)
 		if file.is_file(): #file exists locally
 			blockHashList, blockList = UH.splitFileToBlockAndHash(file)
+		else:
+			blockHashList = []
 
 	# getBlock() from blockstore
 		if hashList:
