@@ -70,8 +70,8 @@ class MetadataStore(rpyc.Service):
 	def exposed_modify_file(self, filename, version, hashlist):
 		# TODO: check version first and handle lock
 		if filename in self.fileHashListMap:
-			if version < self.fileHashListMap[filename]["fileVer"]:
-				self.eprint("client try upload file, but version smaller than server")
+			if version <= self.fileHashListMap[filename]["fileVer"]:
+				self.eprint("client try upload file, but version not larger than server")
 				return "NOT ALLOW"
 
 		missingBlockHashList = []
