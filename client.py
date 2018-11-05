@@ -115,6 +115,7 @@ class SurfStoreClient():
 			print("Not Found")
 		else:
 			self.conn_metaStore.root.delete_file(filename, fileVer+1)
+			print("OK")
 
 	"""
 		download(filename, dst) : Downloads a file (f) from SurfStore and saves
@@ -203,11 +204,11 @@ class UploadHelper():
 		fp = open(filepath, "rb")
 		# FIX: change back to 4096
 		# block = fp.read(3)
-		block = fp.read(2)
+		block = fp.read(4096)
 		while block:
 			blockList.append(block)
 			blockHashList.append(hashlib.sha256(block).hexdigest())
-			block = fp.read(2)
+			block = fp.read(4096)
 			# blockHashList.append("@@" + str(block) + "@@")
 			# block = fp.read(3)
 		# self.eprint("blockList: ", blockList)
