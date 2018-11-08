@@ -83,7 +83,6 @@ class SurfStoreClient():
 					print("OK")
 
 				elif missingBlockHashList == "NOT ALLOW":
-					# TODO: output for user?
 					self.eprint("NOT ALLOW UPLOAD due to file version smaller than server")
 					break
 

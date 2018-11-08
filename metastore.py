@@ -1,6 +1,7 @@
 import rpyc
 import sys
-
+import time
+import threading
 '''
 A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues -
 1. The file being modified has missing blocks in the block store.
@@ -38,7 +39,8 @@ metadata is stored in memory, and no database systems or files will be used to
 maintain the data.
 '''
 class MetadataStore(rpyc.Service):
-
+	# fileHashListMap = {}
+	# deleteFiles = []
 	"""
 		Initialize the class using the config file provided and also initialize
 		any datastructures you may need.
@@ -52,6 +54,8 @@ class MetadataStore(rpyc.Service):
 		# fileHashListMap = {"filename": {fileVer: 0, hashList: ["HashValue1", "HashValue2"]}}
 		self.fileHashListMap = {}
 		self.deleteFiles = []
+		self.read_lock = threading.Lock()
+		# self.read_lock = threading.Lock()
 		# self.fileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
 		# self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
 		# self.eprint("fileHashListMap: ", self.fileHashListMap)
@@ -68,16 +72,17 @@ class MetadataStore(rpyc.Service):
 		method as an RPC call
 	"""
 	def exposed_modify_file(self, filename, version, hashlist):
-		# TODO: check version first and handle lock
+		self.read_lock.acquire()
+		# check version first
 		if filename in self.fileHashListMap:
-			if version <= self.fileHashListMap[filename]["fileVer"]:
-				self.eprint("client try upload file, but version not larger than server")
+			if version < self.fileHashListMap[filename]["fileVer"]:
+				self.eprint("client try upload file, but version smaller than server")
+				self.read_lock.release()
 				return "NOT ALLOW"
 
 		missingBlockHashList = []
 		for h in hashlist:
 			if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
-				# TODO: handle block exist
 				self.eprint("blockstore has block: ", h)
 			else:
 				missingBlockHashList.append(h)
@@ -85,6 +90,8 @@ class MetadataStore(rpyc.Service):
 		if len(missingBlockHashList) == 0:
 			self.eprint("No missingBlockHashList")
 			# client has finished upload NEW file
+			# time.sleep(10)
+			self.eprint("sleep done")
 			if filename not in self.fileHashListMap:
 				self.fileHashListMap[filename] ={"fileVer": 1, "hashList": tuple(hashlist)}
 				# update deletefiles list
@@ -104,10 +111,12 @@ class MetadataStore(rpyc.Service):
 				self.eprint("=====Client has finished upload and OVERWRITE file=====")
 				self.eprint("INFO: filename: ", filename, self.fileHashListMap[filename])
 				self.eprint("==========")
+			self.read_lock.release()
 			return "OK"
 		else:
 			# return missingBlockHashList which client needs to upload block to
 			self.eprint("Find missingBlockHashList for file: ", filename, " return missingBlockHashList", missingBlockHashList)
+			self.read_lock.release()
 			return missingBlockHashList
 
 	"""
@@ -122,11 +131,15 @@ class MetadataStore(rpyc.Service):
 		if version <= verNum:
 			self.eprint("Version not allowed")
 		else:
+			self.read_lock.acquire()
+			self.eprint("delete lock acquired")
 			self.fileHashListMap[filename]["fileVer"] = version
 			self.fileHashListMap[filename]["hashList"] = []
 			self.deleteFiles.append(filename)
 			self.eprint(filename, "with updated version number: ", version, " is deleted")
 			self.eprint(self.deleteFiles)
+			self.read_lock.release()
+			self.eprint("delete lock released")
 
 	"""
 		(v,hl) = ReadFile(f): Reads the file with filename f, returning the
@@ -142,12 +155,22 @@ class MetadataStore(rpyc.Service):
 		### return 1, ["12344", "testtest", "test1"]  ###
 		#################################################
 		# print("!!!!!!!!!!=============hashList id: " + str(self.fileHashListMap))
+		self.read_lock.acquire()
 		if filename not in self.deleteFiles:
 			self.eprint("not deleted file")
 			if filename in self.fileHashListMap:
 				self.eprint("not deleted ")
+
 				fileVer = self.fileHashListMap[filename]["fileVer"]
+				self.eprint("file version is: ", fileVer)
+				# time.sleep(10)
 				fileHashList = self.fileHashListMap[filename]["hashList"]
+				# userinput = input('start')
+				# self.eprint("userinput: ", userinput)
+				# if userinput == "download":
+
+				self.eprint("lock released")
+				self.eprint("file hash list is: ", fileHashList)
 			else:
 				fileVer = 0
 				fileHashList = []
@@ -159,9 +182,9 @@ class MetadataStore(rpyc.Service):
 				fileVer = 0
 				fileHashList = []
 		# file not exist
-		self.eprint("file: ", filename, " doesn't exist in server")
-		# we return fileVer = 0, fileHashList = []
+		self.read_lock.release()
 		return fileVer, fileHashList
+
 
 	def findServer(self, h):
 		return int(h, 16) % int(self.config_dict["B"])
