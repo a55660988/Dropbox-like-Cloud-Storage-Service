@@ -122,12 +122,11 @@ class MetadataStore(rpyc.Service):
 		if version <= verNum:
 			self.eprint("Version not allowed")
 		else:
-			self.fileHashListMap[filename]["fileVer"] = verNum + 1
+			self.fileHashListMap[filename]["fileVer"] = version
 			self.fileHashListMap[filename]["hashList"] = []
 			self.deleteFiles.append(filename)
-			self.eprint(filename, "with version number: ", verNum, " is deleted")
+			self.eprint(filename, "with updated version number: ", version, " is deleted")
 			self.eprint(self.deleteFiles)
-
 
 	"""
 		(v,hl) = ReadFile(f): Reads the file with filename f, returning the
