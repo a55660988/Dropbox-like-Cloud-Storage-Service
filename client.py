@@ -83,7 +83,6 @@ class SurfStoreClient():
 					print("OK")
 
 				elif missingBlockHashList == "NOT ALLOW":
-					# TODO: output for user?
 					self.eprint("NOT ALLOW UPLOAD due to file version smaller than server")
 					break
 
@@ -111,11 +110,17 @@ class SurfStoreClient():
 	"""
 	def delete(self, filename):
 		fileVer, fileHashList = self.conn_metaStore.root.read_file(filename)
-		if not fileHashList:
+		if not fileHashList and fileVer == 0:
+			print("Not Found")
+		elif fileVer > 0 and not fileHashList:
 			print("Not Found")
 		else:
 			self.conn_metaStore.root.delete_file(filename, fileVer+1)
-			print("OK")
+			newFileVer, newFileHashList = self.conn_metaStore.root.read_file(filename)
+			if newFileVer == fileVer + 1 and not newFileHashList:
+				print("OK")
+			else:
+				self.eprint("delete fail")
 
 	"""
 		download(filename, dst) : Downloads a file (f) from SurfStore and saves
