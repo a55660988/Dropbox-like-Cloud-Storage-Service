@@ -115,7 +115,6 @@ class SurfStoreClient():
 			print("Not Found")
 		elif fileVer > 0 and not fileHashList:
 			print("Not Found")
-			return
 		else:
 			self.conn_metaStore.root.delete_file(filename, fileVer+1)
 			newFileVer, newFileHashList = self.conn_metaStore.root.read_file(filename)
