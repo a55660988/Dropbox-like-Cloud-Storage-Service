@@ -54,13 +54,10 @@ class MetadataStore(rpyc.Service):
 		for i in range(0, int(self.config_dict["B"])):
 			self.conn_blockStore.append(rpyc.connect(self.config_dict["block" + str(i)]["host"], self.config_dict["block" + str(i)]["port"]))
 			self.eprint("connected to blockStore" + str(i) + ": ", self.config_dict["block" + str(i)]["host"] + ":" + self.config_dict["block" + str(i)]["port"])
-		# fileHashListMap = {"filename": {fileVer: 0, hashList: ["HashValue1", "HashValue2"]}}
+		# fileHashListMap = {"filename": {fileVer: 0, hashList: [("HashValue1", self.config_dict["blockX"]["host"]), ("HashValue2", self.config_dict["blockX"]["host"])]}}
 		self.fileHashListMap = {}
 		self.deleteFiles = []
 		self.read_lock = threading.Lock()
-		# self.read_lock = threading.Lock()
-		# self.fileHashListMap["/Users/Danny/Desktop/test/a.txt"] = {"fileVer": 1, "hashList": ["HashABC", "HashDEF"]}
-		# self.fileHashListMap["b.txt"] = {"fileVer": 1, "fileHashListIndex": ["HashGHI", "HashJKL"]}
 		# self.eprint("fileHashListMap: ", self.fileHashListMap)
 
 
