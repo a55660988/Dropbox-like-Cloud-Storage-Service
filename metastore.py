@@ -2,6 +2,8 @@ import rpyc
 import sys
 import time
 import threading
+from multiprocessing.pool import ThreadPool
+import pingparsing
 '''
 A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues -
 1. The file being modified has missing blocks in the block store.
@@ -47,6 +49,8 @@ class MetadataStore(rpyc.Service):
 	"""
 	def __init__(self, config):
 		self.config_dict = self.parseConfig(config)
+		self.algorithm = self.config_dict['algo']
+		self.eprint("algorithm decided in metastore: ", self.algorithm)
 		self.conn_blockStore = []
 		for i in range(0, int(self.config_dict["B"])):
 			self.conn_blockStore.append(rpyc.connect(self.config_dict["block" + str(i)]["host"], self.config_dict["block" + str(i)]["port"]))
@@ -82,7 +86,9 @@ class MetadataStore(rpyc.Service):
 
 		missingBlockHashList = []
 		for h in hashlist:
-			if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
+			foundServer = self.findServer(h)
+			self.eprint("found server: ", foundServer)
+			if self.conn_blockStore[foundServer].root.exposed_has_block(h):
 				self.eprint("blockstore has block: ", h)
 			else:
 				missingBlockHashList.append(h)
@@ -172,6 +178,7 @@ class MetadataStore(rpyc.Service):
 				self.eprint("lock released")
 				self.eprint("file hash list is: ", fileHashList)
 			else:
+				self.eprint("can upload")
 				fileVer = 0
 				fileHashList = []
 		else:
@@ -187,7 +194,40 @@ class MetadataStore(rpyc.Service):
 
 
 	def findServer(self, h):
+		self.eprint("find server called with algo: ", self.algorithm)
+		if self.algorithm == 0:
+			self.eprint("algorithm hash ")
+			return self.findServerWithHash(h)
+		elif self.algorithm == 1:
+			self.eprint("algorithm nearest to client")
+			return self.findServerNTC()
+		self.eprint("didn't go in both ")
+
+	def findServerWithHash(self, h):
+		self.eprint("find server with hashvalue ", h)
 		return int(h, 16) % int(self.config_dict["B"])
+
+	def findServerNTC(self):
+		minipindex = self.getMinIp()
+		self.eprint(minipindex)
+		return minipindex
+
+
+	def getRtt(self,ip):
+	    transmitter = pingparsing.PingTransmitter()
+	    transmitter.destination_host = ip
+	    result = transmitter.ping()
+	    pingparser = pingparsing.PingParsing()
+	    result_dict = pingparser.parse(result).as_dict()
+	    return result_dict['rtt_avg']
+
+	def getMinIp(self):
+	    pool = ThreadPool(processes = 4)
+	    ips = [self.config_dict["block0"]["host"], self.config_dict["block1"]["host"], self.config_dict["block2"]["host"], self.config_dict["block3"]["host"]]
+	    multiple_result = [pool.apply_async(self.getRtt,(ip,) ) for ip in ips]
+	    multiple_result = [result.get() for result in multiple_result]
+	    self.eprint("ip ping result: ", multiple_result)
+	    return multiple_result.index(min(multiple_result))
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)
@@ -199,7 +239,9 @@ class MetadataStore(rpyc.Service):
 			# get number of block
 			temp = lines[0].split(":")
 			dict[temp[0]] = temp[1]
-			for line in lines[1:]:
+			alg = lines[1].split(":") # algorithm for block location algorithm
+			dict[alg[0]] = int(alg[1])
+			for line in lines[2:]:
 				temp = line.split(":")
 				dict[temp[0]] = {"host": temp[1].strip(), "port": temp[2].strip()}
 		return dict

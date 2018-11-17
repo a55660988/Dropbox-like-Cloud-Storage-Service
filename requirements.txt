@@ -1,2 +1,19 @@
-rpyc
+rpyci
 pathlib
+def getMinIp(self):
+	    pool = ThreadPool(processes = 4)
+	    ips = [self.config_dict["block0"]["host"], self.config_dict["block1"]["host"], self.config_dict["block2"]["host"], self.config_dict["block3"]["host"]]
+	    multiple_result = [pool.apply_async(self.getRtt,(ip,) ) for ip in ips]
+	    multiple_result = [result.get() for result in multiple_result]
+	    print(multiple_result)
+	    return multiple_result.index(min(multiple_result))
+	"""
+	 Use eprint to print debug messages to stderr
+	 E.g -
+	 self.eprint("This is a debug message")
+	"""
+	def eprint(*args, **kwargs):
+		print(*args, file=sys.stderr, **kwargs)
+        fjweflekwlfnwkflwefnwnflkwefl
+        nfwklnekfnwkef
+        fenwlfefnkwlfnwek

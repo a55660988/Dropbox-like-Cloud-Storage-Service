@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from blockstore import BlockStore
 from metastore import *
+from multiprocessing.pool import ThreadPool
+import pingparsing
 
 """
 A client is a program that interacts with SurfStore. It is used to create,
@@ -20,6 +22,8 @@ class SurfStoreClient():
 	"""
 	def __init__(self, config):
 		self.config_dict = self.parseConfig(config)
+		self.algorithm = self.config_dict['algo']
+		self.eprint("algorithm decided: ", self.algorithm)
 		self.conn_metaStore = rpyc.connect(self.config_dict["metadata"]["host"], self.config_dict["metadata"]["port"])
 		self.eprint("connected to metaStore: ", self.config_dict["metadata"]["host"] + ":" + self.config_dict["metadata"]["port"])
 		self.conn_blockStore = []
@@ -35,7 +39,9 @@ class SurfStoreClient():
 			# get number of block
 			temp = lines[0].split(":")
 			dict[temp[0]] = temp[1]
-			for line in lines[1:]:
+			alg = lines[1].split(":") # algorithm for block location algorithm
+			dict[alg[0]] = int(alg[1])
+			for line in lines[2:]:
 				temp = line.split(":")
 				dict[temp[0]] = {"host": temp[1].strip(), "port": temp[2].strip()}
 		return dict
@@ -66,15 +72,15 @@ class SurfStoreClient():
 			response = ""
 			while response != "OK":
 				# call exposed_read_file(filename): CL check file with metaData and get fileVer, fileHashList
-				fileVer, fileHashList = self.conn_metaStore.root.exposed_read_file(filename)
-
+				fileVer, fileHashList = self.conn_metaStore.root.read_file(filename)
+				self.eprint("filever: " + str(fileVer) + " fileHashlist: " + str(fileHashList))
 				# split file into block and blockHash
 				blockHashList, blockList = UH.splitFileToBlockAndHash(filepath)
-
+				self.eprint("local slipt to blocklist: ", blockHashList)
 				# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockHashList
 				self.eprint("call ModifyFile to get missingBlockHashList")
 				fileVer = fileVer + 1
-				missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList)
+				missingBlockHashList = self.conn_metaStore.root.modify_file(filename, fileVer, blockHashList)
 
 				if missingBlockHashList == "OK":
 					# no need to upload
@@ -169,8 +175,33 @@ class SurfStoreClient():
 			print("Not Found")
 
 	def findServer(self, h):
+		if self.algorithm == 0:
+			return self.findServerWithHash(h)
+		elif self.algorithm == 1:
+			return self.findServerNTC()
+
+	def findServerWithHash(self, h):
 		return int(h, 16) % int(self.config_dict["B"])
 
+	def findServerNTC(self):
+		return self.getMinIp()
+
+
+	def getRtt(self,ip):
+	    transmitter = pingparsing.PingTransmitter()
+	    transmitter.destination_host = ip
+	    result = transmitter.ping()
+	    pingparser = pingparsing.PingParsing()
+	    result_dict = pingparser.parse(result).as_dict()
+	    return result_dict['rtt_avg']
+
+	def getMinIp(self):
+	    pool = ThreadPool(processes = 4)
+	    ips = [self.config_dict["block0"]["host"], self.config_dict["block1"]["host"], self.config_dict["block2"]["host"], self.config_dict["block3"]["host"]]
+	    multiple_result = [pool.apply_async(self.getRtt,(ip,) ) for ip in ips]
+	    multiple_result = [result.get() for result in multiple_result]
+	    print(multiple_result)
+	    return multiple_result.index(min(multiple_result))
 	"""
 	 Use eprint to print debug messages to stderr
 	 E.g -
@@ -184,6 +215,8 @@ class UploadHelper():
 
 	def __init__(self, conn_metaStore, conn_blockStore, config_dict):
 		self.config_dict = config_dict
+		self.algorithm = self.config_dict["algo"]
+		self.eprint("algorithm picked parsed in uploadhelper")
 		self.conn_metaStore = conn_metaStore
 		self.conn_blockStore = conn_blockStore
 
@@ -257,8 +290,33 @@ class UploadHelper():
 		print(*args, file=sys.stderr, **kwargs)
 
 	def findServer(self, h):
+		if self.algorithm == 0:
+			return self.findServerWithHash(h)
+		elif self.algorithm == 1:
+			return self.findServerNTC()
+
+	def findServerWithHash(self, h):
 		return int(h, 16) % int(self.config_dict["B"])
 
+	def findServerNTC(self):
+		return self.getMinIp()
+
+
+	def getRtt(self,ip):
+	    transmitter = pingparsing.PingTransmitter()
+	    transmitter.destination_host = ip
+	    result = transmitter.ping()
+	    pingparser = pingparsing.PingParsing()
+	    result_dict = pingparser.parse(result).as_dict()
+	    return result_dict['rtt_avg']
+
+	def getMinIp(self):
+	    pool = ThreadPool(processes = 4)
+	    ips = [self.config_dict["block0"]["host"], self.config_dict["block1"]["host"], self.config_dict["block2"]["host"], self.config_dict["block3"]["host"]]
+	    multiple_result = [pool.apply_async(self.getRtt,(ip,) ) for ip in ips]
+	    multiple_result = [result.get() for result in multiple_result]
+	    self.eprint(multiple_result)
+	    return multiple_result.index(min(multiple_result))
 
 
 
