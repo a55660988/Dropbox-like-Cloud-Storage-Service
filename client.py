@@ -22,6 +22,8 @@ class SurfStoreClient():
 	"""
 	def __init__(self, config):
 		self.config_dict = self.parseConfig(config)
+		self.algorithm = self.config_dict['algo']
+		self.eprint("algorithm decided: ", self.algorithm)
 		self.conn_metaStore = rpyc.connect(self.config_dict["metadata"]["host"], self.config_dict["metadata"]["port"])
 		self.eprint("connected to metaStore: ", self.config_dict["metadata"]["host"] + ":" + self.config_dict["metadata"]["port"])
 		self.conn_blockStore = []
@@ -37,7 +39,9 @@ class SurfStoreClient():
 			# get number of block
 			temp = lines[0].split(":")
 			dict[temp[0]] = temp[1]
-			for line in lines[1:]:
+			alg = lines[1].split(":") # algorithm for block location algorithm
+			dict[alg[0]] = int(alg[1])
+			for line in lines[2:]:
 				temp = line.split(":")
 				dict[temp[0]] = {"host": temp[1].strip(), "port": temp[2].strip()}
 		return dict
@@ -47,7 +51,7 @@ class SurfStoreClient():
 	hashed blocks and uploads them onto the MetadataStore
 	(and potentially the BlockStore if they were not already present there).
 	"""
-	def upload(self, filepath, option):
+	def upload(self, filepath):
 		# check local file exist
 		# call exposed_read_file(filename): CL check file with metaData and get ver, hl
 		# split file into block and blockHash
@@ -68,15 +72,15 @@ class SurfStoreClient():
 			response = ""
 			while response != "OK":
 				# call exposed_read_file(filename): CL check file with metaData and get fileVer, fileHashList
-				fileVer, fileHashList = self.conn_metaStore.root.exposed_read_file(filename)
-
+				fileVer, fileHashList = self.conn_metaStore.root.read_file(filename)
+				self.eprint("filever: " + str(fileVer) + " fileHashlist: " + str(fileHashList))
 				# split file into block and blockHash
 				blockHashList, blockList = UH.splitFileToBlockAndHash(filepath)
-
+				self.eprint("local slipt to blocklist: ", blockHashList)
 				# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockHashList
 				self.eprint("call ModifyFile to get missingBlockHashList")
 				fileVer = fileVer + 1
-				missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList, option)
+				missingBlockHashList = self.conn_metaStore.root.modify_file(filename, fileVer, blockHashList)
 
 				if missingBlockHashList == "OK":
 					# no need to upload
@@ -92,11 +96,11 @@ class SurfStoreClient():
 					# start uploading, call exposed_store_block(h, block)
 					self.eprint("Get missingBlockHashList (first)")
 					self.eprint("missingBlockHashList (first): ", missingBlockHashList)
-					UH.startUpload(blockList, blockHashList, missingBlockHashList, option)
+					UH.startUpload(blockList, blockHashList, missingBlockHashList)
 
 					# When finishing upload, check file
 					self.eprint("Finish upload, check uploaded file")
-					response = UH.checkUpload(filename, fileVer, blockHashList, option)
+					response = UH.checkUpload(filename, fileVer, blockHashList)
 					if response == "OK":
 						print(response)
 					else:
@@ -128,7 +132,7 @@ class SurfStoreClient():
 		download(filename, dst) : Downloads a file (f) from SurfStore and saves
 		it to (dst) folder. Ensures not to download unnecessary blocks.
 	"""
-	def download(self, filename, location, option):
+	def download(self, filename, location):
 		UH = UploadHelper(self.conn_metaStore, self.conn_blockStore, self.config_dict)
 	# check if filename exists in location
 		if location == "":
@@ -156,10 +160,7 @@ class SurfStoreClient():
 					self.eprint("block already exist ", blockHashList.index(h))
 					blocks.append(blockList[blockHashList.index(h)])
 				else:
-					if option == "hash":
-						blocks.append(self.conn_blockStore[self.findServer(h)].root.get_block(h))
-					elif option == "RTT":
-						blocks.append(self.conn_blockStore[self.findServerRTT()].root.get_block(h))
+					blocks.append(self.conn_blockStore[self.findServer(h)].root.get_block(h))
 		# merge blocks to form file & write out file
 			if location != "":
 				fname = location + "/"
@@ -174,28 +175,33 @@ class SurfStoreClient():
 			print("Not Found")
 
 	def findServer(self, h):
+		if self.algorithm == 0:
+			return self.findServerWithHash(h)
+		elif self.algorithm == 1:
+			return self.findServerNTC()
+
+	def findServerWithHash(self, h):
 		return int(h, 16) % int(self.config_dict["B"])
 
-	def findServerRTT(self):
-		pool = ThreadPool(processes = 4)
-		ips = [self.config_dict["block" + str(i)]["host"] for i in range(0, 4)]
-		async_result = [pool.apply_async(self.getRtt, (ip, )) for ip in ips]
-		RTT_result = [res.get() for res in async_result]
-		self.eprint("Server IP: ", ips)
-		self.eprint("RTT_result: ", RTT_result)
-		RTT_min_index = RTT_result.index(min(RTT_result))
-		self.eprint("RTT_min_index: ", RTT_min_index, "Choose IP: ", ips[RTT_min_index])
-		return RTT_min_index
+	def findServerNTC(self):
+		return self.getMinIp()
+
 
 	def getRtt(self, ip):
-		transmitter = pingparsing.PingTransmitter()
-		transmitter.destination_host = ip
-		result = transmitter.ping()
-		pingparser = pingparsing.PingParsing()
-		result_dict = pingparser.parse(result).as_dict()
-		return result_dict['rtt_avg']
+	    transmitter = pingparsing.PingTransmitter()
+	    transmitter.destination_host = ip
+	    result = transmitter.ping()
+	    pingparser = pingparsing.PingParsing()
+	    result_dict = pingparser.parse(result).as_dict()
+	    return result_dict['rtt_avg']
 
-
+	def getMinIp(self):
+	    pool = ThreadPool(processes = 4)
+	    ips = [self.config_dict["block0"]["host"], self.config_dict["block1"]["host"], self.config_dict["block2"]["host"], self.config_dict["block3"]["host"]]
+	    multiple_result = [pool.apply_async(self.getRtt, (ip,)) for ip in ips]
+	    multiple_result = [result.get() for result in multiple_result]
+	    print(multiple_result)
+	    return multiple_result.index(min(multiple_result))
 	"""
 	 Use eprint to print debug messages to stderr
 	 E.g -
@@ -209,6 +215,8 @@ class UploadHelper():
 
 	def __init__(self, conn_metaStore, conn_blockStore, config_dict):
 		self.config_dict = config_dict
+		self.algorithm = self.config_dict["algo"]
+		self.eprint("algorithm picked parsed in uploadhelper")
 		self.conn_metaStore = conn_metaStore
 		self.conn_blockStore = conn_blockStore
 
@@ -247,7 +255,7 @@ class UploadHelper():
 		# self.eprint("At client, split local file into block DONE")
 		return blockHashList, blockList
 
-	def startUpload(self, blockList, blockHashList, missingBlockHashList, option):
+	def startUpload(self, blockList, blockHashList, missingBlockHashList):
 		# all missing, upload all
 		if len(missingBlockHashList) == len(blockList):
 			self.eprint("Start upload missing block (file total change)")
@@ -255,31 +263,22 @@ class UploadHelper():
 				# to avoid other client has finish uploaded file, same block upload again
 				# thus, when start upload each block, check again whether hashblock exist in server
 				# if exist, no need to upload the same block again
-				if option == "hash":
-					if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
-						self.eprint("Block exists in server, no need to upload hashblock: ", h)
-						continue
-					# if not, upload
-					else:
-						self.eprint("hashblock not exists in server, need to upload block and hashblock: ", h)
-						self.conn_blockStore[self.findServer(h)].root.exposed_store_block(h, b)
-				elif option == "RTT":
-					if self.conn_blockStore[self.findServerRTT()].root.exposed_has_block(h):
-						self.eprint("Block exists in server, no need to upload hashblock: ", h)
-						continue
-					# if not, upload
-					else:
-						self.eprint("hashblock not exists in server, need to upload block and hashblock: ", h)
-						self.conn_blockStore[self.findServerRTT()].root.exposed_store_block(h, b)
+				if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
+					self.eprint("Block exists in server, no need to upload hashblock: ", h)
+					continue
+				# if not, upload
+				else:
+					self.eprint("hashblock not exists in server, need to upload block and hashblock: ", h)
+					self.conn_blockStore[self.findServer(h)].root.exposed_store_block(h, b)
 		# partial missing, upload missing block
 		else:
 			self.eprint("Start upload missing block (file partial change)")
 			for missingBlockHashListElement in missingBlockHashList:
 				self.conn_blockStore.root.exposed_store_block(blockHashList[blockHashList.index(missingBlockHashListElement)], missingBlockHashListElement)
 
-	def checkUpload(self, filename, fileVer, blockHashList, option):
+	def checkUpload(self, filename, fileVer, blockHashList):
 		# call exposed_modify_file to check with metaData and get response OK
-		missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList, option)
+		missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList)
 		self.eprint("missingBlockHashList (second): ", missingBlockHashList)
 		if missingBlockHashList == "OK":
 			return "OK"
@@ -289,37 +288,42 @@ class UploadHelper():
 		print(*args, file=sys.stderr, **kwargs)
 
 	def findServer(self, h):
+		if self.algorithm == 0:
+			return self.findServerWithHash(h)
+		elif self.algorithm == 1:
+			return self.findServerNTC()
+
+	def findServerWithHash(self, h):
 		return int(h, 16) % int(self.config_dict["B"])
 
-	def findServerRTT(self):
-		pool = ThreadPool(processes = 4)
-		ips = [self.config_dict["block" + str(i)]["host"] for i in range(0, 4)]
-		async_result = [pool.apply_async(self.getRtt, (ip, )) for ip in ips]
-		RTT_result = [res.get() for res in async_result]
-		self.eprint("Server IP: ", ips)
-		self.eprint("RTT_result: ", RTT_result)
-		RTT_min_index = RTT_result.index(min(RTT_result))
-		self.eprint("RTT_min_index: ", RTT_min_index, "Choose IP: ", ips[RTT_min_index])
-		return RTT_min_index
+	def findServerNTC(self):
+		return self.getMinIp()
+
 
 	def getRtt(self, ip):
-		transmitter = pingparsing.PingTransmitter()
-		transmitter.destination_host = ip
-		result = transmitter.ping()
-		pingparser = pingparsing.PingParsing()
-		result_dict = pingparser.parse(result).as_dict()
-		return result_dict['rtt_avg']
+	    transmitter = pingparsing.PingTransmitter()
+	    transmitter.destination_host = ip
+	    result = transmitter.ping()
+	    pingparser = pingparsing.PingParsing()
+	    result_dict = pingparser.parse(result).as_dict()
+	    return result_dict['rtt_avg']
 
-
+	def getMinIp(self):
+	    pool = ThreadPool(processes = 4)
+	    ips = [self.config_dict["block0"]["host"], self.config_dict["block1"]["host"], self.config_dict["block2"]["host"], self.config_dict["block3"]["host"]]
+	    multiple_result = [pool.apply_async(self.getRtt, (ip,)) for ip in ips]
+	    multiple_result = [result.get() for result in multiple_result]
+	    self.eprint(multiple_result)
+	    return multiple_result.index(min(multiple_result))
 
 if __name__ == '__main__':
 	client = SurfStoreClient(sys.argv[1])
 	operation = sys.argv[2]
 	if operation == 'upload':
-		client.upload(sys.argv[3], sys.argv[4])
+		client.upload(sys.argv[3])
 	elif operation == 'download':
-		client.download(sys.argv[3], sys.argv[4], sys.argv[5])
+		client.download(sys.argv[3], sys.argv[4])
 	elif operation == 'delete':
-		client.delete(sys.argv[3], sys.argv[4])
+		client.delete(sys.argv[3])
 	else:
 		print("Invalid operation")

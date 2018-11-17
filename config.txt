@@ -1,4 +1,5 @@
 B: 4
+algo: 1
 metadata: localhost:6000
 block0: 63.32.107.71:5000
 block1: 54.233.227.64:5001
