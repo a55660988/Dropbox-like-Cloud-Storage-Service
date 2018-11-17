@@ -2,6 +2,9 @@ import rpyc
 import sys
 import time
 import threading
+import pingparsing
+from multiprocessing.pool import ThreadPool
+
 '''
 A sample ErrorResponse class. Use this to respond to client requests when the request has any of the following issues -
 1. The file being modified has missing blocks in the block store.
@@ -71,7 +74,7 @@ class MetadataStore(rpyc.Service):
 		As per rpyc syntax, adding the prefix 'exposed_' will expose this
 		method as an RPC call
 	"""
-	def exposed_modify_file(self, filename, version, hashlist):
+	def exposed_modify_file(self, filename, version, hashlist, option):
 		self.read_lock.acquire()
 		# check version first
 		if filename in self.fileHashListMap:
@@ -82,10 +85,16 @@ class MetadataStore(rpyc.Service):
 
 		missingBlockHashList = []
 		for h in hashlist:
-			if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
-				self.eprint("blockstore has block: ", h)
-			else:
-				missingBlockHashList.append(h)
+			if option == "hash":
+				if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
+					self.eprint("blockstore has block: ", h)
+				else:
+					missingBlockHashList.append(h)
+			elif option == "RTT":
+				if self.conn_blockStore[self.findServerRTT()].root.exposed_has_block(h):
+					self.eprint("blockstore has block: ", h)
+				else:
+					missingBlockHashList.append(h)
 		# no missing block
 		if len(missingBlockHashList) == 0:
 			self.eprint("No missingBlockHashList")
@@ -185,9 +194,27 @@ class MetadataStore(rpyc.Service):
 		self.read_lock.release()
 		return fileVer, fileHashList
 
-
 	def findServer(self, h):
 		return int(h, 16) % int(self.config_dict["B"])
+
+	def findServerRTT(self):
+		pool = ThreadPool(processes = 4)
+		ips = [self.config_dict["block" + str(i)]["host"] for i in range(0, 4)]
+		async_result = [pool.apply_async(self.getRtt, (ip, )) for ip in ips]
+		RTT_result = [res.get() for res in async_result]
+		self.eprint("Server IP: ", ips)
+		self.eprint("RTT_result: ", RTT_result)
+		RTT_min_index = RTT_result.index(min(RTT_result))
+		self.eprint("RTT_min_index: ", RTT_min_index, "Choose IP: ", ips[RTT_min_index])
+		return RTT_min_index
+
+	def getRtt(self, ip):
+		transmitter = pingparsing.PingTransmitter()
+		transmitter.destination_host = ip
+		result = transmitter.ping()
+		pingparser = pingparsing.PingParsing()
+		result_dict = pingparser.parse(result).as_dict()
+		return result_dict['rtt_avg']
 
 	def eprint(*args, **kwargs):
 		print(*args, file=sys.stderr, **kwargs)

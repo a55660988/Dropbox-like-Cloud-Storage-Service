@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from blockstore import BlockStore
 from metastore import *
+import pingparsing
+from multiprocessing.pool import ThreadPool
 
 """
 A client is a program that interacts with SurfStore. It is used to create,
@@ -45,7 +47,7 @@ class SurfStoreClient():
 	hashed blocks and uploads them onto the MetadataStore
 	(and potentially the BlockStore if they were not already present there).
 	"""
-	def upload(self, filepath):
+	def upload(self, filepath, option):
 		# check local file exist
 		# call exposed_read_file(filename): CL check file with metaData and get ver, hl
 		# split file into block and blockHash
@@ -74,7 +76,7 @@ class SurfStoreClient():
 				# call exposed_modify_file(filename, version, hashlist) to metaData to get missingBlockHashList
 				self.eprint("call ModifyFile to get missingBlockHashList")
 				fileVer = fileVer + 1
-				missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList)
+				missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList, option)
 
 				if missingBlockHashList == "OK":
 					# no need to upload
@@ -90,11 +92,11 @@ class SurfStoreClient():
 					# start uploading, call exposed_store_block(h, block)
 					self.eprint("Get missingBlockHashList (first)")
 					self.eprint("missingBlockHashList (first): ", missingBlockHashList)
-					UH.startUpload(blockList, blockHashList, missingBlockHashList)
+					UH.startUpload(blockList, blockHashList, missingBlockHashList, option)
 
 					# When finishing upload, check file
 					self.eprint("Finish upload, check uploaded file")
-					response = UH.checkUpload(filename, fileVer, blockHashList)
+					response = UH.checkUpload(filename, fileVer, blockHashList, option)
 					if response == "OK":
 						print(response)
 					else:
@@ -126,7 +128,7 @@ class SurfStoreClient():
 		download(filename, dst) : Downloads a file (f) from SurfStore and saves
 		it to (dst) folder. Ensures not to download unnecessary blocks.
 	"""
-	def download(self, filename, location):
+	def download(self, filename, location, option):
 		UH = UploadHelper(self.conn_metaStore, self.conn_blockStore, self.config_dict)
 	# check if filename exists in location
 		if location == "":
@@ -154,7 +156,10 @@ class SurfStoreClient():
 					self.eprint("block already exist ", blockHashList.index(h))
 					blocks.append(blockList[blockHashList.index(h)])
 				else:
-					blocks.append(self.conn_blockStore[self.findServer(h)].root.get_block(h))
+					if option == "hash":
+						blocks.append(self.conn_blockStore[self.findServer(h)].root.get_block(h))
+					elif option == "RTT":
+						blocks.append(self.conn_blockStore[self.findServerRTT()].root.get_block(h))
 		# merge blocks to form file & write out file
 			if location != "":
 				fname = location + "/"
@@ -170,6 +175,26 @@ class SurfStoreClient():
 
 	def findServer(self, h):
 		return int(h, 16) % int(self.config_dict["B"])
+
+	def findServerRTT(self):
+		pool = ThreadPool(processes = 4)
+		ips = [self.config_dict["block" + str(i)]["host"] for i in range(0, 4)]
+		async_result = [pool.apply_async(self.getRtt, (ip, )) for ip in ips]
+		RTT_result = [res.get() for res in async_result]
+		self.eprint("Server IP: ", ips)
+		self.eprint("RTT_result: ", RTT_result)
+		RTT_min_index = RTT_result.index(min(RTT_result))
+		self.eprint("RTT_min_index: ", RTT_min_index, "Choose IP: ", ips[RTT_min_index])
+		return RTT_min_index
+
+	def getRtt(self, ip):
+		transmitter = pingparsing.PingTransmitter()
+		transmitter.destination_host = ip
+		result = transmitter.ping()
+		pingparser = pingparsing.PingParsing()
+		result_dict = pingparser.parse(result).as_dict()
+		return result_dict['rtt_avg']
+
 
 	"""
 	 Use eprint to print debug messages to stderr
@@ -203,7 +228,6 @@ class UploadHelper():
 			filename = filepath
 		return filename
 
-
 	def splitFileToBlockAndHash(self, filepath):
 		self.eprint("At client, split local file into block")
 		blockList = []
@@ -223,7 +247,7 @@ class UploadHelper():
 		# self.eprint("At client, split local file into block DONE")
 		return blockHashList, blockList
 
-	def startUpload(self, blockList, blockHashList, missingBlockHashList):
+	def startUpload(self, blockList, blockHashList, missingBlockHashList, option):
 		# all missing, upload all
 		if len(missingBlockHashList) == len(blockList):
 			self.eprint("Start upload missing block (file total change)")
@@ -231,23 +255,31 @@ class UploadHelper():
 				# to avoid other client has finish uploaded file, same block upload again
 				# thus, when start upload each block, check again whether hashblock exist in server
 				# if exist, no need to upload the same block again
-				if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
-					self.eprint("Block exists in server, no need to upload hashblock: ", h)
-					continue
-				# if not, upload
-				else:
-					self.eprint("hashblock not exists in server, need to upload block and hashblock: ", h)
-					self.conn_blockStore[self.findServer(h)].root.exposed_store_block(h, b)
-
+				if option == "hash":
+					if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
+						self.eprint("Block exists in server, no need to upload hashblock: ", h)
+						continue
+					# if not, upload
+					else:
+						self.eprint("hashblock not exists in server, need to upload block and hashblock: ", h)
+						self.conn_blockStore[self.findServer(h)].root.exposed_store_block(h, b)
+				elif option == "RTT":
+					if self.conn_blockStore[self.findServerRTT()].root.exposed_has_block(h):
+						self.eprint("Block exists in server, no need to upload hashblock: ", h)
+						continue
+					# if not, upload
+					else:
+						self.eprint("hashblock not exists in server, need to upload block and hashblock: ", h)
+						self.conn_blockStore[self.findServerRTT()].root.exposed_store_block(h, b)
 		# partial missing, upload missing block
 		else:
 			self.eprint("Start upload missing block (file partial change)")
 			for missingBlockHashListElement in missingBlockHashList:
 				self.conn_blockStore.root.exposed_store_block(blockHashList[blockHashList.index(missingBlockHashListElement)], missingBlockHashListElement)
 
-	def checkUpload(self, filename, fileVer, blockHashList):
+	def checkUpload(self, filename, fileVer, blockHashList, option):
 		# call exposed_modify_file to check with metaData and get response OK
-		missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList)
+		missingBlockHashList = self.conn_metaStore.root.exposed_modify_file(filename, fileVer, blockHashList, option)
 		self.eprint("missingBlockHashList (second): ", missingBlockHashList)
 		if missingBlockHashList == "OK":
 			return "OK"
@@ -259,6 +291,24 @@ class UploadHelper():
 	def findServer(self, h):
 		return int(h, 16) % int(self.config_dict["B"])
 
+	def findServerRTT(self):
+		pool = ThreadPool(processes = 4)
+		ips = [self.config_dict["block" + str(i)]["host"] for i in range(0, 4)]
+		async_result = [pool.apply_async(self.getRtt, (ip, )) for ip in ips]
+		RTT_result = [res.get() for res in async_result]
+		self.eprint("Server IP: ", ips)
+		self.eprint("RTT_result: ", RTT_result)
+		RTT_min_index = RTT_result.index(min(RTT_result))
+		self.eprint("RTT_min_index: ", RTT_min_index, "Choose IP: ", ips[RTT_min_index])
+		return RTT_min_index
+
+	def getRtt(self, ip):
+		transmitter = pingparsing.PingTransmitter()
+		transmitter.destination_host = ip
+		result = transmitter.ping()
+		pingparser = pingparsing.PingParsing()
+		result_dict = pingparser.parse(result).as_dict()
+		return result_dict['rtt_avg']
 
 
 
@@ -266,10 +316,10 @@ if __name__ == '__main__':
 	client = SurfStoreClient(sys.argv[1])
 	operation = sys.argv[2]
 	if operation == 'upload':
-		client.upload(sys.argv[3])
+		client.upload(sys.argv[3], sys.argv[4])
 	elif operation == 'download':
-		client.download(sys.argv[3], sys.argv[4])
+		client.download(sys.argv[3], sys.argv[4], sys.argv[5])
 	elif operation == 'delete':
-		client.delete(sys.argv[3])
+		client.delete(sys.argv[3], sys.argv[4])
 	else:
 		print("Invalid operation")
