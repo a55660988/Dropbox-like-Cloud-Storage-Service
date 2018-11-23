@@ -115,6 +115,7 @@ class SurfStoreClient():
 	delete(filename) : Signals the MetadataStore to delete a file.
 	"""
 	def delete(self, filename):
+		# fileHashList is a tuple of tuple
 		fileVer, fileHashList = self.conn_metaStore.root.read_file(filename)
 		if not fileHashList and fileVer == 0:
 			print("Not Found")
@@ -156,11 +157,11 @@ class SurfStoreClient():
 		if hashList:
 			blocks = []
 			for h in hashList:
-				if h in blockHashList:
-					self.eprint("block already exist ", blockHashList.index(h))
-					blocks.append(blockList[blockHashList.index(h)])
+				if h[0] in blockHashList:
+					self.eprint("block already exist ", blockHashList.index(h[0]))
+					blocks.append(blockList[blockHashList.index(h[0])])
 				else:
-					blocks.append(self.conn_blockStore[self.findServer(h)].root.get_block(h))
+					blocks.append(self.conn_blockStore[h[1]].root.get_block(h[0]))
 		# merge blocks to form file & write out file
 			if location != "":
 				fname = location + "/"
@@ -246,7 +247,8 @@ class UploadHelper():
 		block = fp.read(4096)
 		while block:
 			blockList.append(block)
-			blockHashList.append(hashlib.sha256(block).hexdigest())
+			# add list to blockhashlist [hashvalue, ]
+			blockHashList.append((hashlib.sha256(block).hexdigest(), ""))
 			block = fp.read(4096)
 			# blockHashList.append("@@" + str(block) + "@@")
 			# block = fp.read(3)
@@ -263,18 +265,29 @@ class UploadHelper():
 				# to avoid other client has finish uploaded file, same block upload again
 				# thus, when start upload each block, check again whether hashblock exist in server
 				# if exist, no need to upload the same block again
-				if self.conn_blockStore[self.findServer(h)].root.exposed_has_block(h):
-					self.eprint("Block exists in server, no need to upload hashblock: ", h)
+
+				server = self.findServer(h[0])
+				updateTuple = (h[0], server)
+				blockHashList[blockHashList.index((h[0],""))] = updateTuple
+				self.eprint("start upload h: ", h)
+				self.eprint("start upload blockhashList: ", blockHashList)
+				if self.conn_blockStore[server].root.has_block(h[0]):
+					self.eprint("Block exists in server, no need to upload hashblock: ", h[0])
 					continue
 				# if not, upload
 				else:
-					self.eprint("hashblock not exists in server, need to upload block and hashblock: ", h)
-					self.conn_blockStore[self.findServer(h)].root.exposed_store_block(h, b)
+					self.eprint("hashblock not exists in server, need to upload block and hashblock: ", h[0])
+					self.conn_blockStore[server].root.store_block(h[0], b)
 		# partial missing, upload missing block
 		else:
 			self.eprint("Start upload missing block (file partial change)")
 			for missingBlockHashListElement in missingBlockHashList:
-				self.conn_blockStore.root.exposed_store_block(blockHashList[blockHashList.index(missingBlockHashListElement)], missingBlockHashListElement)
+				server = self.findServer(missingBlockHashListElement)
+				indexOfHashValue = blockHashList.index((missingBlockHashListElement,""))
+				updateTuple = (missingBlockHashListElement, server)
+				blockHashList[indexOfHashValue] = updateTuple
+				self.conn_blockStore[server].root.store_block(missingBlockHashListElement, blockList[blockHashList.index(missingBlockHashListElement)])
+
 
 	def checkUpload(self, filename, fileVer, blockHashList):
 		# call exposed_modify_file to check with metaData and get response OK
@@ -313,8 +326,8 @@ class UploadHelper():
 	    ips = [self.config_dict["block0"]["host"], self.config_dict["block1"]["host"], self.config_dict["block2"]["host"], self.config_dict["block3"]["host"]]
 	    multiple_result = [pool.apply_async(self.getRtt, (ip,)) for ip in ips]
 	    multiple_result = [result.get() for result in multiple_result]
-	    self.eprint(multiple_result)
-	    return multiple_result.index(min(multiple_result))
+	    self.eprint("return index of server: ", multiple_result.index(min(multiple_result)))
+	    return int(multiple_result.index(min(multiple_result)))
 
 if __name__ == '__main__':
 	client = SurfStoreClient(sys.argv[1])
