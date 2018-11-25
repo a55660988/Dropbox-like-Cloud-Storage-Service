@@ -201,7 +201,7 @@ class SurfStoreClient():
 	    ips = [self.config_dict["block0"]["host"], self.config_dict["block1"]["host"], self.config_dict["block2"]["host"], self.config_dict["block3"]["host"]]
 	    multiple_result = [pool.apply_async(self.getRtt, (ip,)) for ip in ips]
 	    multiple_result = [result.get() for result in multiple_result]
-	    print(multiple_result)
+	    self.eprint("average rtt to datacenters: ", multiple_result)
 	    return multiple_result.index(min(multiple_result))
 	"""
 	 Use eprint to print debug messages to stderr
@@ -326,6 +326,7 @@ class UploadHelper():
 	    ips = [self.config_dict["block0"]["host"], self.config_dict["block1"]["host"], self.config_dict["block2"]["host"], self.config_dict["block3"]["host"]]
 	    multiple_result = [pool.apply_async(self.getRtt, (ip,)) for ip in ips]
 	    multiple_result = [result.get() for result in multiple_result]
+		self.eprint("average rtt to datacenters: ", multiple_result)
 	    self.eprint("return index of server: ", multiple_result.index(min(multiple_result)))
 	    return int(multiple_result.index(min(multiple_result)))
 
